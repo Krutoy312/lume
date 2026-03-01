@@ -40,6 +40,17 @@ dependencies:
   cloud_firestore: ^6.1.2
   firebase_storage: ^13.0.6
 
+  # State management
+  flutter_riverpod: ^2.6.1
+
+  # Navigation
+  go_router: ^14.8.1
+
+  # Authentication
+  google_sign_in: ^6.2.2
+  sign_in_with_apple: ^6.1.4
+  crypto: ^3.0.3
+
 dev_dependencies:
   flutter_test:
     sdk: flutter

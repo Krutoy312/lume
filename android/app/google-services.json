@@ -12,7 +12,20 @@
           "package_name": "com.skin_care.skin_care_app"
         }
       },
-      "oauth_client": [],
+      "oauth_client": [
+        {
+          "client_id": "776350147957-2b3568coaktte1a9sn6jlsoni7g591gv.apps.googleusercontent.com",
+          "client_type": 1,
+          "android_info": {
+            "package_name": "com.skin_care.skin_care_app",
+            "certificate_hash": "dcd98ab55cbe420dae047a417af474f42d69d275"
+          }
+        },
+        {
+          "client_id": "776350147957-cvdcfd7plb36idm7006cgei8obil1h8k.apps.googleusercontent.com",
+          "client_type": 3
+        }
+      ],
       "api_key": [
         {
           "current_key": "AIzaSyAssH4UbyNXxfoa0Whw62bCXWSlqQNLuQE"
@@ -20,7 +33,19 @@
       ],
       "services": {
         "appinvite_service": {
-          "other_platform_oauth_client": []
+          "other_platform_oauth_client": [
+            {
+              "client_id": "776350147957-cvdcfd7plb36idm7006cgei8obil1h8k.apps.googleusercontent.com",
+              "client_type": 3
+            },
+            {
+              "client_id": "776350147957-0s7qkoa156u3hr5drj7grlpq0gse92jp.apps.googleusercontent.com",
+              "client_type": 2,
+              "ios_info": {
+                "bundle_id": "com.skincare.skinCareApp"
+              }
+            }
+          ]
         }
       }
     }

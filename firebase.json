@@ -1,1 +1,42 @@
-{"functions":[{"source":"functions","codebase":"default","ignore":["node_modules",".git","firebase-debug.log","firebase-debug.*.log","*.local"],"predeploy":["npm --prefix \"$RESOURCE_DIR\" run lint","npm --prefix \"$RESOURCE_DIR\" run build"]}],"flutter":{"platforms":{"android":{"default":{"projectId":"skin-care-60bdc","appId":"1:776350147957:android:970bbec929903d12239f3c","fileOutput":"android/app/google-services.json"}},"dart":{"lib/firebase_options.dart":{"projectId":"skin-care-60bdc","configurations":{"android":"1:776350147957:android:970bbec929903d12239f3c","ios":"1:776350147957:ios:8ee85d5a6e9ffe24239f3c"}}}}}}
+{
+  "firestore": {
+    "rules": "firestore.rules"
+  },
+  "functions": [
+    {
+      "source": "functions",
+      "codebase": "default",
+      "ignore": [
+        "node_modules",
+        ".git",
+        "firebase-debug.log",
+        "firebase-debug.*.log",
+        "*.local"
+      ],
+      "predeploy": [
+        "npm --prefix \"$RESOURCE_DIR\" run lint",
+        "npm --prefix \"$RESOURCE_DIR\" run build"
+      ]
+    }
+  ],
+  "flutter": {
+    "platforms": {
+      "android": {
+        "default": {
+          "projectId": "skin-care-60bdc",
+          "appId": "1:776350147957:android:970bbec929903d12239f3c",
+          "fileOutput": "android/app/google-services.json"
+        }
+      },
+      "dart": {
+        "lib/firebase_options.dart": {
+          "projectId": "skin-care-60bdc",
+          "configurations": {
+            "android": "1:776350147957:android:970bbec929903d12239f3c",
+            "ios": "1:776350147957:ios:8ee85d5a6e9ffe24239f3c"
+          }
+        }
+      }
+    }
+  }
+}

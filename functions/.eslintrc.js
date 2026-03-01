@@ -26,8 +26,24 @@ module.exports = {
     "import",
   ],
   rules: {
+    // ── Kept from default ────────────────────────────────────────────────────
     "quotes": ["error", "double"],
     "import/no-unresolved": 0,
     "indent": ["error", 2],
+
+    // ── Overrides of eslint-config-google ────────────────────────────────────
+
+    // google defaults to "never"; TypeScript community convention is "always".
+    // { foo } is more readable than {foo} in imports and destructuring.
+    "object-curly-spacing": ["error", "always"],
+
+    // google defaults to 80; 120 is the modern industry standard and avoids
+    // forcing artificial line breaks in template literals and long log strings.
+    "max-len": ["error", { "code": 120 }],
+
+    // TypeScript's static type system makes JSDoc @param/@return tags
+    // redundant and hard to keep in sync. Disable both JSDoc rules.
+    "valid-jsdoc": "off",
+    "require-jsdoc": "off",
   },
 };

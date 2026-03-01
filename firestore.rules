@@ -1,0 +1,117 @@
+rules_version = '2';
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // ── Helpers ───────────────────────────────────────────────────────────────
+
+    function isSignedIn() {
+      return request.auth != null;
+    }
+
+    function isOwner(uid) {
+      return isSignedIn() && request.auth.uid == uid;
+    }
+
+    // Fields exclusively managed by Cloud Functions (admin SDK bypasses rules).
+    // The client must never write these — not even to the correct value.
+    function serverManagedFields() {
+      return [
+        'hasSubscription',
+        'streakCurrent',
+        'streakLongest',
+        'lastActiveDateKey',
+        'daysCounter',
+        'createdAt'
+      ];
+    }
+
+    // Whitelist of fields the client is allowed to change on the user document.
+    // Any field not listed here is implicitly protected.
+    function userWritableFields() {
+      return [
+        'name', 'birthDate', 'gender', 'skinType', 'skinFeatures', 'goal',
+        'shelf',
+        'timezone', 'trackedMetrics',
+        'notificationsEnabled', 'morningMinutes', 'eveningMinutes',
+        'updatedAt'
+      ];
+    }
+
+    // For updates: every changed key must be in the writable set.
+    function onlyWritableFieldsChanged() {
+      return request.resource.data
+        .diff(resource.data)
+        .affectedKeys()
+        .hasOnly(userWritableFields());
+    }
+
+    // YYYY-MM-DD validation (RE2 syntax, no lookaheads).
+    function isValidDateKey(key) {
+      return key.matches(
+        '[0-9]{4}-(0[1-9]|1[0-2])-(0[1-9]|[12][0-9]|3[01])'
+      );
+    }
+
+    function isValidGender(data) {
+      return !('gender' in data)
+        || data.gender == null
+        || data.gender in ['male', 'female', 'other'];
+    }
+
+    function isValidSkinType(data) {
+      return !('skinType' in data)
+        || data.skinType == null
+        || data.skinType in ['normal', 'dry', 'oily', 'combo'];
+    }
+
+    // ── /users/{uid} ──────────────────────────────────────────────────────────
+
+    match /users/{uid} {
+
+      // Each user reads only their own document.
+      allow get:  if isOwner(uid);
+      allow list: if false; // Never expose full user collection.
+
+      // Documents are created by the initUserDocument Cloud Function
+      // (admin SDK, bypasses rules). Client creation is blocked to prevent
+      // bootstrapping with forged server-managed fields.
+      allow create: if false;
+
+      // Profile / settings updates: whitelist only. Streak and subscription
+      // fields are immutable from the client perspective.
+      allow update: if isOwner(uid)
+                    && onlyWritableFieldsChanged()
+                    && isValidGender(request.resource.data)
+                    && isValidSkinType(request.resource.data);
+
+      // Deletion is an admin operation only.
+      allow delete: if false;
+
+      // ── /users/{uid}/assessments/{dateKey} ──────────────────────────────────
+
+      match /assessments/{dateKey} {
+
+        allow read: if isOwner(uid);
+
+        // On create: document ID must be a valid date and must match the
+        // dateKey field stored inside the document.
+        allow create: if isOwner(uid)
+                      && isValidDateKey(dateKey)
+                      && request.resource.data.dateKey == dateKey;
+
+        // On update: dateKey (immutable once created) must not change.
+        allow update: if isOwner(uid)
+                      && request.resource.data.dateKey == dateKey;
+
+        // Users may delete their own assessments (e.g. mistake entry).
+        allow delete: if isOwner(uid);
+      }
+    }
+
+    // Deny everything else by default (implicit, but explicit for clarity).
+    match /{document=**} {
+      allow read, write: if false;
+    }
+  }
+}

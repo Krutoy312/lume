@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_svg/flutter_svg.dart';
 import '../../../../core/theme/app_text_styles.dart';
 
 class SkinAnalysisButton extends StatelessWidget {
@@ -18,11 +19,7 @@ class SkinAnalysisButton extends StatelessWidget {
           gradient: LinearGradient(
             begin: Alignment.centerLeft,
             end: Alignment.centerRight,
-            colors: [
-              Color(0xFFC8915A),
-              Color(0xFFD4A067),
-              Color(0xFFCB9560),
-            ],
+            colors: [Color(0xFFC89968), Color(0xFFD4A574), Color(0xFFDFB586)],
           ),
           borderRadius: BorderRadius.all(Radius.circular(16)),
         ),
@@ -38,6 +35,7 @@ class SkinAnalysisButton extends StatelessWidget {
                       style: AppTextStyles.labelMedium.copyWith(
                         color: Colors.white,
                         fontWeight: FontWeight.w400,
+                        letterSpacing: -0.5,
                       ),
                     ),
                     TextSpan(
@@ -45,24 +43,17 @@ class SkinAnalysisButton extends StatelessWidget {
                       style: AppTextStyles.labelMedium.copyWith(
                         color: Colors.white,
                         fontWeight: FontWeight.w700,
+                        letterSpacing: -0.5,
                       ),
                     ),
                   ],
                 ),
               ),
-              const Spacer(),
-              Container(
-                width: 14,
-                height: 14,
-                decoration: const BoxDecoration(
-                  color: Colors.white24,
-                  shape: BoxShape.circle,
-                ),
-                child: const Icon(
-                  Icons.add,
-                  color: Colors.white,
-                  size: 10,
-                ),
+              SizedBox(width: w * 0.005),
+              SvgPicture.asset(
+                'assets/icons/ic_star.svg',
+                width: w * 0.025,
+                height: w * 0.025,
               ),
             ],
           ),

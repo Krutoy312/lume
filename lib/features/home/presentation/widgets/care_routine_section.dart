@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_svg/flutter_svg.dart';
 import '../../../../core/theme/app_colors.dart';
 import '../../../../core/theme/app_text_styles.dart';
 
@@ -28,14 +29,14 @@ class CareRoutineSection extends StatelessWidget {
             children: [
               Expanded(
                 child: _RoutineCard(
-                  icon: Icons.wb_sunny_outlined,
+                  assetPath: 'assets/icons/ic_sun.svg',
                   label: 'Утренний уход',
                 ),
               ),
               SizedBox(width: gap),
               Expanded(
                 child: _RoutineCard(
-                  icon: Icons.bedtime_outlined,
+                  assetPath: 'assets/icons/ic_moon.svg',
                   label: 'Вечерний уход',
                 ),
               ),
@@ -48,9 +49,9 @@ class CareRoutineSection extends StatelessWidget {
 }
 
 class _RoutineCard extends StatelessWidget {
-  const _RoutineCard({required this.icon, required this.label});
+  const _RoutineCard({required this.assetPath, required this.label});
 
-  final IconData icon;
+  final String assetPath;
   final String label;
 
   @override
@@ -69,10 +70,10 @@ class _RoutineCard extends StatelessWidget {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Icon(
-              icon,
-              size: w * 0.076,
-              color: const Color(0xFFE3E3E3),
+            SvgPicture.asset(
+              assetPath,
+              width: w * 0.076,
+              height: w * 0.076,
             ),
             const Spacer(),
             Text(

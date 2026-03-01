@@ -1,3 +1,5 @@
+import 'dart:math' show pi;
+
 import 'package:flutter/material.dart';
 import '../../../../core/theme/app_colors.dart';
 import '../../../../core/theme/app_text_styles.dart';
@@ -84,7 +86,7 @@ class GoalProgressCard extends StatelessWidget {
           Container(
             padding: EdgeInsets.symmetric(
               horizontal: w * 0.038,
-              vertical: w * 0.041,
+              vertical: w * 0,
             ),
             decoration: const BoxDecoration(
               gradient: LinearGradient(
@@ -95,45 +97,47 @@ class GoalProgressCard extends StatelessWidget {
               ),
               borderRadius: BorderRadius.all(Radius.circular(16)),
             ),
-            child: Row(
-              children: [
-                Container(
-                  width: w * 0.127,
-                  height: w * 0.127,
-                  decoration: BoxDecoration(
-                    color: const Color(0xFFFFF4E8),
-                    borderRadius: BorderRadius.circular(w * 0.064),
-                  ),
-                  child: Icon(
-                    Icons.lightbulb_outline_rounded,
-                    color: AppColors.golden,
-                    size: w * 0.071,
-                  ),
-                ),
-                SizedBox(width: w * 0.038),
-                Expanded(
-                  child: RichText(
-                    text: TextSpan(
-                      children: [
-                        TextSpan(
-                          text: 'Матовость увелиилась с 6 до 8\n',
-                          style: AppTextStyles.labelMedium.copyWith(
-                            fontWeight: FontWeight.w700,
-                            color: const Color(0xFF6B5446),
-                            letterSpacing: -0.5,
-                          ),
-                        ),
-                        TextSpan(
-                          text: 'Вы на правильном пути!',
-                          style: AppTextStyles.labelMedium.copyWith(
-                            color: const Color(0xFF6B5446),
-                          ),
-                        ),
-                      ],
+            child: IntrinsicHeight(
+              child: Row(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  Transform.rotate(
+                    angle: 15.87 * pi / 180,
+                    child: Image.asset(
+                      'assets/images/img_light_bulb.png',
+                      width: w * 0.17,
+                      fit: BoxFit.contain,
                     ),
                   ),
-                ),
-              ],
+                  SizedBox(width: w * 0.02),
+                  Expanded(
+                    child: Align(
+                      alignment: Alignment.centerRight,
+                      child: RichText(
+                        textAlign: TextAlign.right,
+                        text: TextSpan(
+                          children: [
+                            TextSpan(
+                              text: 'Матовость увелиилась с 6 до 8\n',
+                              style: AppTextStyles.labelMedium.copyWith(
+                                fontWeight: FontWeight.w700,
+                                color: const Color(0xFF6B5446),
+                                letterSpacing: -0.5,
+                              ),
+                            ),
+                            TextSpan(
+                              text: 'Вы на правильном пути!',
+                              style: AppTextStyles.labelMedium.copyWith(
+                                color: const Color(0xFF6B5446),
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ),
+                  ),
+                ],
+              ),
             ),
           ),
         ],

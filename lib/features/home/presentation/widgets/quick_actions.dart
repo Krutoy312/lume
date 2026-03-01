@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_svg/flutter_svg.dart';
 import '../../../../core/theme/app_colors.dart';
 import '../../../../core/theme/app_text_styles.dart';
 
@@ -28,15 +29,15 @@ class QuickActions extends StatelessWidget {
             children: [
               Expanded(
                 child: _ActionButton(
-                  icon: Icons.search_rounded,
-                  label: 'Найти уход',
+                  assetPath: 'assets/icons/ic_leaf.svg',
+                  label: 'Подобрать уход',
                   onTap: () {},
                 ),
               ),
               SizedBox(width: gap),
               Expanded(
                 child: _ActionButton(
-                  icon: Icons.science_outlined,
+                  assetPath: 'assets/icons/ic_scan.svg',
                   label: 'Анализ продукта',
                   onTap: () {},
                 ),
@@ -51,12 +52,12 @@ class QuickActions extends StatelessWidget {
 
 class _ActionButton extends StatelessWidget {
   const _ActionButton({
-    required this.icon,
+    required this.assetPath,
     required this.label,
     required this.onTap,
   });
 
-  final IconData icon;
+  final String assetPath;
   final String label;
   final VoidCallback onTap;
 
@@ -77,17 +78,15 @@ class _ActionButton extends StatelessWidget {
           borderRadius: BorderRadius.all(Radius.circular(16)),
         ),
         child: Row(
+          mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            Icon(icon, size: w * 0.046, color: AppColors.golden),
-            SizedBox(width: w * 0.025),
-            Flexible(
-              child: Text(
-                label,
-                style: AppTextStyles.labelMedium.copyWith(
-                  fontWeight: FontWeight.w500,
-                  letterSpacing: -0.5,
-                ),
-                overflow: TextOverflow.ellipsis,
+            SvgPicture.asset(assetPath, width: w * 0.046, height: w * 0.046),
+            SizedBox(width: w * 0.020),
+            Text(
+              label,
+              style: AppTextStyles.labelMedium.copyWith(
+                fontWeight: FontWeight.w500,
+                letterSpacing: -0.5,
               ),
             ),
           ],

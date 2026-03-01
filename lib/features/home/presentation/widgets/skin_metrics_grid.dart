@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_svg/flutter_svg.dart';
 import '../../../../core/theme/app_colors.dart';
 import '../../../../core/theme/app_text_styles.dart';
 
@@ -6,19 +7,19 @@ class _MetricData {
   const _MetricData({
     required this.label,
     required this.value,
-    required this.icon,
+    required this.assetPath,
   });
 
   final String label;
   final int value;
-  final IconData icon;
+  final String assetPath;
 }
 
 const _metrics = [
-  _MetricData(label: 'Матовость', value: 6, icon: Icons.grain_rounded),
-  _MetricData(label: 'Насыщенность', value: 7, icon: Icons.tonality_rounded),
-  _MetricData(label: 'Увлажнённость', value: 8, icon: Icons.water_drop_outlined),
-  _MetricData(label: 'Комфорт', value: 4, icon: Icons.sentiment_satisfied_outlined),
+  _MetricData(label: 'Матовость', value: 6, assetPath: 'assets/icons/ic_haze.svg'),
+  _MetricData(label: 'Насыщенность', value: 7, assetPath: 'assets/icons/ic_saturation.svg'),
+  _MetricData(label: 'Увлажнённость', value: 8, assetPath: 'assets/icons/ic_moisture.svg'),
+  _MetricData(label: 'Комфорт', value: 4, assetPath: 'assets/icons/ic_comfort.svg'),
 ];
 
 class SkinMetricsGrid extends StatelessWidget {
@@ -86,10 +87,10 @@ class _MetricCard extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Icon(
-            data.icon,
-            size: w * 0.046,
-            color: AppColors.goldenLighter,
+          SvgPicture.asset(
+            data.assetPath,
+            width: w * 0.046,
+            height: w * 0.046,
           ),
           const Spacer(),
           Text(

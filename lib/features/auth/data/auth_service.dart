@@ -2,6 +2,7 @@ import 'dart:convert';
 import 'dart:io';
 import 'dart:math';
 
+import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:crypto/crypto.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:google_sign_in/google_sign_in.dart';
@@ -125,6 +126,36 @@ class AuthService {
         _auth.signOut(),
         _googleSignIn.signOut(),
       ]);
+    } catch (_) {
+      throw AuthFailure.unknown;
+    }
+  }
+
+  // ── Delete account ──────────────────────────────────────────────────────────
+
+  /// Permanently removes the user's Firestore document and Firebase Auth record.
+  ///
+  /// Steps:
+  ///   1. Delete `users/{uid}` from Firestore.
+  ///   2. Sign out the cached Google account (if applicable).
+  ///   3. Call [User.delete] on the Firebase Auth user.
+  ///
+  /// Note: Firebase requires a recent login for [User.delete]. If the session
+  /// is older than ~5 minutes the call throws `requires-recent-login`.
+  /// The UI layer should catch [AuthFailure.requiresRecentLogin] and ask the
+  /// user to sign in again before retrying.
+  Future<void> deleteAccount() async {
+    final user = _auth.currentUser;
+    if (user == null) return;
+    try {
+      await FirebaseFirestore.instance
+          .collection('users')
+          .doc(user.uid)
+          .delete();
+      await _googleSignIn.signOut();
+      await user.delete();
+    } on FirebaseAuthException catch (e) {
+      throw AuthFailure.fromFirebaseCode(e.code);
     } catch (_) {
       throw AuthFailure.unknown;
     }

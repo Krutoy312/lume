@@ -5,7 +5,7 @@ import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../features/auth/presentation/screens/login_screen.dart';
-import '../../features/home/presentation/screens/home_screen.dart';
+import '../../features/shell/presentation/screens/main_shell.dart';
 
 // ── Route name constants ──────────────────────────────────────────────────────
 
@@ -67,7 +67,7 @@ final GoRouter appRouter = GoRouter(
     ),
     GoRoute(
       path: AppRoutes.home,
-      builder: (_, __) => const HomeScreen(),
+      builder: (_, __) => const MainShell(),
     ),
   ],
   errorBuilder: (_, state) => Scaffold(

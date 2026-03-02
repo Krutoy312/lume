@@ -124,4 +124,40 @@ class AppTextStyles {
     color: AppColors.golden,
     height: 1.5,
   );
+
+  // ---------------------------------------------------------------------------
+  // Account / Settings screen
+  // ---------------------------------------------------------------------------
+
+  /// Section header (e.g. "Профиль", "Настройки приложения") — 16 px.
+  /// Figma: SF Pro Light → nearest bundled weight is w400.
+  static const TextStyle sectionLabel = TextStyle(
+    fontFamily: _fontFamily,
+    fontSize: 16,
+    fontWeight: FontWeight.w400,
+    color: AppColors.primaryLight,
+    height: 1.5, // 24 px line-height
+  );
+
+  /// Settings row title (e.g. "Имя", "Тип кожи") — 14 px Medium.
+  /// Figma: SF Pro Medium, tracking −0.5 px.
+  static const TextStyle rowTitle = TextStyle(
+    fontFamily: _fontFamily,
+    fontSize: 14,
+    fontWeight: FontWeight.w500,
+    color: AppColors.primaryDark,
+    height: 1.43, // 20 px line-height
+    letterSpacing: -0.5,
+  );
+
+  /// Settings row subtitle / placeholder — 12 px.
+  /// Figma: SF Pro Light → nearest bundled weight is w400.
+  static const TextStyle rowCaption = TextStyle(
+    fontFamily: _fontFamily,
+    fontSize: 12,
+    fontWeight: FontWeight.w400,
+    color: AppColors.primaryMedium,
+    height: 1.67, // 20 px line-height
+    letterSpacing: -0.5,
+  );
 }

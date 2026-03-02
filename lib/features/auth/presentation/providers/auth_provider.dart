@@ -64,6 +64,7 @@ class AuthController extends StateNotifier<AsyncValue<void>> {
   Future<void> signInWithApple() => _run(_service.signInWithApple);
   Future<void> signInAnonymously() => _run(_service.signInAnonymously);
   Future<void> signOut() => _run(_service.signOut);
+  Future<void> deleteAccount() => _run(_service.deleteAccount);
 
   /// Clears a previous error so the UI can reset the error banner.
   void clearError() => state = const AsyncData(null);

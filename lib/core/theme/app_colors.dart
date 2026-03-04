@@ -18,6 +18,9 @@ class AppColors {
   /// Warm sand — skin indicators / care-today labels / /10 text
   static const Color primaryLight = Color(0xFFBDA593);
 
+  /// Lighter warm sand — metric score "/10" suffix, input placeholder text
+  static const Color primaryLighter = Color(0xFFC4B5A0);
+
   /// Amber — Bubylka advice text
   static const Color amber = Color(0xFFB87A39);
 

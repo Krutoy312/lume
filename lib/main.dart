@@ -8,16 +8,12 @@ import 'firebase_options.dart';
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
-
   await Firebase.initializeApp(
     options: DefaultFirebaseOptions.currentPlatform,
   );
-
   runApp(
     // ProviderScope is the root of the Riverpod provider tree.
-    const ProviderScope(
-      child: _App(),
-    ),
+    const ProviderScope(child: _App()),
   );
 }
 

@@ -48,8 +48,19 @@ class _MainShellState extends State<MainShell> {
     final navBarTotalHeight =
         barHeight + bottomMargin + mq.padding.bottom;
 
+    // When the keyboard is open, hide the floating nav bar so it cannot
+    // bleed into modal bottom sheets. resizeToAvoidBottomInset: false
+    // prevents the Scaffold body from shrinking upward when the keyboard
+    // appears — without it, the bar (positioned at bottom: 0 of the Stack)
+    // would rise above the keyboard and show through transparent modals.
+    final keyboardOpen = mq.viewInsets.bottom > 0;
+
     return Scaffold(
       backgroundColor: AppColors.scaffoldBackground,
+      // Must be false: if the body shrinks, the FloatingNavBar moves up
+      // and becomes visible through the transparent barrier of any modal
+      // bottom sheet that uses useRootNavigator: true.
+      resizeToAvoidBottomInset: false,
       body: Stack(
         children: [
           // Override bottom padding so child SafeArea widgets clear the bar.
@@ -64,15 +75,20 @@ class _MainShellState extends State<MainShell> {
           ),
 
           // Floating nav bar overlaid at the bottom of the screen.
-          // It is placed OUTSIDE the MediaQuery override so it reads the
-          // real system bottom padding for its own internal layout.
+          // Hidden while the keyboard is open so it never interferes with
+          // bottom sheets or keyboard-adjacent UI.
+          // Placed OUTSIDE the MediaQuery override to read the real system
+          // bottom padding for its own internal layout.
           Positioned(
             left: 0,
             right: 0,
             bottom: 0,
-            child: FloatingNavBar(
-              selectedIndex: _selectedIndex,
-              onTap: (i) => setState(() => _selectedIndex = i),
+            child: Visibility(
+              visible: !keyboardOpen,
+              child: FloatingNavBar(
+                selectedIndex: _selectedIndex,
+                onTap: (i) => setState(() => _selectedIndex = i),
+              ),
             ),
           ),
         ],

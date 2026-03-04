@@ -65,6 +65,16 @@ class AuthController extends StateNotifier<AsyncValue<void>> {
   Future<void> signInAnonymously() => _run(_service.signInAnonymously);
   Future<void> signOut() => _run(_service.signOut);
   Future<void> deleteAccount() => _run(_service.deleteAccount);
+  Future<void> updateName(String name) => _run(() => _service.updateName(name));
+  Future<void> updateSkinType(String skinType) =>
+      _run(() => _service.updateSkinType(skinType));
+  Future<void> updateCareTimes({
+    required int morningMinutes,
+    required int eveningMinutes,
+  }) => _run(() => _service.updateCareTimes(
+        morningMinutes: morningMinutes,
+        eveningMinutes: eveningMinutes,
+      ));
 
   /// Clears a previous error so the UI can reset the error banner.
   void clearError() => state = const AsyncData(null);

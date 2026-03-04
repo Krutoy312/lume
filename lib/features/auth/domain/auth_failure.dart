@@ -11,6 +11,10 @@ class AuthFailure {
   static const AuthFailure unknown = AuthFailure('Неизвестная ошибка. Попробуйте снова.');
   static const AuthFailure appleNotSupported =
       AuthFailure('Apple Sign-In доступен только на iOS.');
+  static const AuthFailure nameCooldown =
+      AuthFailure('Изменить имя можно только раз в 2 недели.');
+  static const AuthFailure requiresRecentLogin =
+      AuthFailure('Выйдите и войдите снова, затем повторите попытку.');
 
   /// Maps a [FirebaseAuthException.code] to a human-readable message.
   factory AuthFailure.fromFirebaseCode(String code) {
@@ -27,6 +31,7 @@ class AuthFailure {
         const AuthFailure('Слишком много попыток. Попробуйте позже.'),
       'operation-not-allowed' =>
         const AuthFailure('Этот способ входа отключён.'),
+      'requires-recent-login' => AuthFailure.requiresRecentLogin,
       _ => AuthFailure.unknown,
     };
   }

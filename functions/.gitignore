@@ -7,4 +7,10 @@ typings/
 
 # Node.js dependency directory
 node_modules/
+
+# Environment variable files
+# .env is committed (non-secret defaults only)
+# .env.local and project-specific overrides must NOT be committed
+.env.local
+.env.*.local
 *.local

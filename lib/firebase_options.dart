@@ -17,10 +17,7 @@ import 'package:flutter/foundation.dart'
 class DefaultFirebaseOptions {
   static FirebaseOptions get currentPlatform {
     if (kIsWeb) {
-      throw UnsupportedError(
-        'DefaultFirebaseOptions have not been configured for web - '
-        'you can reconfigure this by running the FlutterFire CLI again.',
-      );
+      return web;
     }
     switch (defaultTargetPlatform) {
       case TargetPlatform.android:
@@ -49,20 +46,31 @@ class DefaultFirebaseOptions {
     }
   }
 
+  static const FirebaseOptions web = FirebaseOptions(
+    apiKey: 'AIzaSyAnRotOuBhYc1QhcPvmnLCxJZMXu_TiWKQ',
+    appId: '1:267681321898:web:6318e6e12154dac12991d3',
+    messagingSenderId: '267681321898',
+    projectId: 'skin-care-4ae04',
+    authDomain: 'skin-care-4ae04.firebaseapp.com',
+    storageBucket: 'skin-care-4ae04.firebasestorage.app',
+    measurementId: 'G-M7MQB262P2',
+  );
+
   static const FirebaseOptions android = FirebaseOptions(
-    apiKey: 'AIzaSyAssH4UbyNXxfoa0Whw62bCXWSlqQNLuQE',
-    appId: '1:776350147957:android:970bbec929903d12239f3c',
-    messagingSenderId: '776350147957',
-    projectId: 'skin-care-60bdc',
-    storageBucket: 'skin-care-60bdc.firebasestorage.app',
+    apiKey: 'AIzaSyB26WMShKNniUNzDK3rhuB3mWw7LQ4AXrY',
+    appId: '1:267681321898:android:8e99d504f2fa8d2f2991d3',
+    messagingSenderId: '267681321898',
+    projectId: 'skin-care-4ae04',
+    storageBucket: 'skin-care-4ae04.firebasestorage.app',
   );
 
   static const FirebaseOptions ios = FirebaseOptions(
-    apiKey: 'AIzaSyDV6oK4ewvnPrSdGSD7UUdzcShDpYo_P8g',
-    appId: '1:776350147957:ios:8ee85d5a6e9ffe24239f3c',
-    messagingSenderId: '776350147957',
-    projectId: 'skin-care-60bdc',
-    storageBucket: 'skin-care-60bdc.firebasestorage.app',
+    apiKey: 'AIzaSyAGAsSKAec3OU18UxUu6YzN45KMWKIBVmo',
+    appId: '1:267681321898:ios:527c51bee7716a822991d3',
+    messagingSenderId: '267681321898',
+    projectId: 'skin-care-4ae04',
+    storageBucket: 'skin-care-4ae04.firebasestorage.app',
     iosBundleId: 'com.skincare.skinCareApp',
   );
+
 }

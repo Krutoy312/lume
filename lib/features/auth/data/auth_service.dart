@@ -41,6 +41,12 @@ class AuthService {
   ///   • `google-services.json` present in `android/app/` (already in project).
   Future<void> signInWithGoogle() async {
     try {
+      // Clear any stale Google session before presenting the picker.
+      // This prevents DEVELOPER_ERROR / SecurityException ("Unknown calling
+      // package") that occur when a previously-deleted account's OAuth token
+      // is still cached locally.
+      await _googleSignIn.signOut();
+
       final googleUser = await _googleSignIn.signIn();
       if (googleUser == null) throw AuthFailure.cancelled;
 
@@ -131,32 +137,149 @@ class AuthService {
     }
   }
 
+  // ── Update name ─────────────────────────────────────────────────────────────
+
+  /// Updates the user's display name in Firestore with a 14-day cooldown.
+  ///
+  /// Rules:
+  ///   • If `lastNameChangeDate` is null (new account) → allow immediately.
+  ///   • If `lastNameChangeDate` is set → require at least 14 days to pass.
+  ///   • On success → writes `lastNameChangeDate: Timestamp.now()`.
+  ///
+  /// Throws [AuthFailure.nameCooldown] when the cooldown has not expired.
+  Future<void> updateName(String name) async {
+    final user = _auth.currentUser;
+    if (user == null) throw AuthFailure.unknown;
+
+    final docRef = FirebaseFirestore.instance
+        .collection('users')
+        .doc(user.uid);
+
+    try {
+      final doc = await docRef.get();
+      final lastChange = doc.data()?['lastNameChangeDate'] as Timestamp?;
+
+      if (lastChange != null) {
+        final daysSince =
+            DateTime.now().difference(lastChange.toDate()).inDays;
+        if (daysSince < 14) throw AuthFailure.nameCooldown;
+      }
+
+      await docRef.update({
+        'name': name,
+        'lastNameChangeDate': FieldValue.serverTimestamp(),
+      });
+    } on AuthFailure {
+      rethrow;
+    } on FirebaseAuthException catch (e) {
+      throw AuthFailure.fromFirebaseCode(e.code);
+    } catch (_) {
+      throw AuthFailure.unknown;
+    }
+  }
+
+  // ── Update care times ───────────────────────────────────────────────────────
+
+  /// Persists [morningMinutes] and [eveningMinutes] in the user's Firestore
+  /// document. Both values are total minutes from midnight
+  /// (e.g. 08:00 = 480, 21:00 = 1260).
+  Future<void> updateCareTimes({
+    required int morningMinutes,
+    required int eveningMinutes,
+  }) async {
+    final user = _auth.currentUser;
+    if (user == null) throw AuthFailure.unknown;
+
+    try {
+      await FirebaseFirestore.instance
+          .collection('users')
+          .doc(user.uid)
+          .update({
+            'morningMinutes': morningMinutes,
+            'eveningMinutes': eveningMinutes,
+          });
+    } on FirebaseAuthException catch (e) {
+      throw AuthFailure.fromFirebaseCode(e.code);
+    } catch (_) {
+      throw AuthFailure.unknown;
+    }
+  }
+
+  // ── Update skin type ────────────────────────────────────────────────────────
+
+  /// Writes [skinType] to the current user's Firestore document.
+  ///
+  /// Firestore rules enforce: skinType in ['normal', 'dry', 'oily', 'combo'].
+  /// Passing any other value will be rejected by the server.
+  Future<void> updateSkinType(String skinType) async {
+    final user = _auth.currentUser;
+    if (user == null) throw AuthFailure.unknown;
+
+    try {
+      await FirebaseFirestore.instance
+          .collection('users')
+          .doc(user.uid)
+          .update({'skinType': skinType});
+    } on FirebaseAuthException catch (e) {
+      throw AuthFailure.fromFirebaseCode(e.code);
+    } catch (_) {
+      throw AuthFailure.unknown;
+    }
+  }
+
   // ── Delete account ──────────────────────────────────────────────────────────
 
   /// Permanently removes the user's Firestore document and Firebase Auth record.
   ///
   /// Steps:
-  ///   1. Delete `users/{uid}` from Firestore.
-  ///   2. Sign out the cached Google account (if applicable).
+  ///   1. Delete `users/{uid}` from Firestore (while still authenticated).
+  ///   2. Fully revoke the Google OAuth grant via disconnect(), then signOut().
+  ///      This prevents DEVELOPER_ERROR / SecurityException on re-registration
+  ///      caused by a zombie Google session after account deletion.
   ///   3. Call [User.delete] on the Firebase Auth user.
+  ///   4. Sign out locally to ensure authStateChanges emits null immediately.
   ///
-  /// Note: Firebase requires a recent login for [User.delete]. If the session
-  /// is older than ~5 minutes the call throws `requires-recent-login`.
-  /// The UI layer should catch [AuthFailure.requiresRecentLogin] and ask the
-  /// user to sign in again before retrying.
+  /// Throws [AuthFailure.requiresRecentLogin] if the Firebase session is too
+  /// old. The UI should prompt the user to sign in again and retry.
   Future<void> deleteAccount() async {
     final user = _auth.currentUser;
     if (user == null) return;
     try {
+      // Step 1 — Remove the Firestore user document (requires active session).
       await FirebaseFirestore.instance
           .collection('users')
           .doc(user.uid)
           .delete();
-      await _googleSignIn.signOut();
+
+      // Step 2 — Fully revoke Google OAuth grant so the next sign-in starts
+      // completely fresh. disconnect() invalidates the server-side token;
+      // signOut() clears the local cache. Both are no-ops for non-Google users.
+      try {
+        await _googleSignIn.disconnect();
+      } catch (_) {
+        // disconnect() can throw if there is no connected account — safe to ignore.
+      }
+      try {
+        await _googleSignIn.signOut();
+      } catch (_) {}
+
+      // Step 3 — Permanently delete the Firebase Auth account.
+      //   • Firebase SDK fires authStateChanges(null) upon success.
+      //   • GoRouter's _GoRouterRefreshStream calls notifyListeners(), which
+      //     re-evaluates the redirect and navigates to /login automatically.
+      //   • Throws FirebaseAuthException(requires-recent-login) when the
+      //     session is older than ~5 minutes → surfaced as requiresRecentLogin.
       await user.delete();
+
+      // Step 4 — Belt-and-suspenders: explicitly clear local auth state so the
+      // stream emits definitively even if the SDK defers the deletion event.
+      await _auth.signOut();
     } on FirebaseAuthException catch (e) {
+      // requires-recent-login is mapped to AuthFailure.requiresRecentLogin
+      // inside fromFirebaseCode, so the UI can show a targeted prompt.
       throw AuthFailure.fromFirebaseCode(e.code);
-    } catch (_) {
+    } catch (e) {
+      if (e is AuthFailure) rethrow;
       throw AuthFailure.unknown;
     }
   }

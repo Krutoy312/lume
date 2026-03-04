@@ -12,7 +12,24 @@
       "Bash(node:*)",
       "Bash(./gradlew signingReport:*)",
       "mcp__figma__get_metadata",
-      "Bash(wc:*)"
+      "Bash(wc:*)",
+      "Bash(firebase projects:list:*)",
+      "Bash(firebase deploy:*)",
+      "Bash(npm install:*)",
+      "Bash(firebase functions:log:*)",
+      "Bash(firebase functions:list:*)",
+      "Bash(npx tsc:*)",
+      "Bash(do sed:*)",
+      "Bash(gcloud projects:*)",
+      "Bash(python:*)",
+      "Bash(flutter:*)",
+      "Bash(keytool:*)",
+      "Bash(./gradlew clean:*)",
+      "Bash(test:*)",
+      "Bash(npx eslint:*)",
+      "Bash(gcloud auth:*)",
+      "Bash(gcloud config:*)",
+      "mcp__ide__getDiagnostics"
     ]
   }
 }

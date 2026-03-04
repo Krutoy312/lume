@@ -2,7 +2,8 @@
     <application
         android:label="skin_care_app"
         android:name="${applicationName}"
-        android:icon="@mipmap/ic_launcher">
+        android:icon="@mipmap/ic_launcher"
+        android:enableOnBackInvokedCallback="true">
         <activity
             android:name=".MainActivity"
             android:exported="true"
@@ -37,6 +38,11 @@
 
          In particular, this is used by the Flutter engine in io.flutter.plugin.text.ProcessTextPlugin. -->
     <queries>
+        <!-- Required on Android 11+ (API 30+) for Firebase and Google Sign-In
+             to communicate with Google Play Services. Without this, the package
+             visibility system blocks GMS connections, causing SecurityException:
+             "Unknown calling package name 'com.google.android.gms'". -->
+        <package android:name="com.google.android.gms" />
         <intent>
             <action android:name="android.intent.action.PROCESS_TEXT"/>
             <data android:mimeType="text/plain"/>

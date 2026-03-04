@@ -1,5 +1,9 @@
 {
-  "include": [
-    ".eslintrc.js"
-  ]
+  "include": [".eslintrc.js"],
+  "compilerOptions": {
+    "module": "CommonJS",
+    "moduleResolution": "node",
+    "noEmit": true,
+    "allowJs": true
+  }
 }

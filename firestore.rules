@@ -30,7 +30,8 @@ service cloud.firestore {
     // Any field not listed here is implicitly protected.
     function userWritableFields() {
       return [
-        'name', 'birthDate', 'gender', 'skinType', 'skinFeatures', 'goal',
+        'name', 'lastNameChangeDate',
+        'birthDate', 'gender', 'skinType', 'skinFeatures', 'goal',
         'shelf',
         'timezone', 'trackedMetrics',
         'notificationsEnabled', 'morningMinutes', 'eveningMinutes',
@@ -85,8 +86,8 @@ service cloud.firestore {
                     && isValidGender(request.resource.data)
                     && isValidSkinType(request.resource.data);
 
-      // Deletion is an admin operation only.
-      allow delete: if false;
+      // Users may delete their own document (account deletion flow).
+      allow delete: if isOwner(uid);
 
       // ── /users/{uid}/assessments/{dateKey} ──────────────────────────────────
 
@@ -106,6 +107,20 @@ service cloud.firestore {
 
         // Users may delete their own assessments (e.g. mistake entry).
         allow delete: if isOwner(uid);
+      }
+
+      // ── /users/{uid}/daily_assessments/{dateKey} ─────────────────────────────
+
+      match /daily_assessments/{dateKey} {
+
+        // Users may read their own daily assessments (progress screen, charts).
+        allow read: if isOwner(uid);
+
+        // Metrics are written by the saveDailyAssessment Cloud Function (admin
+        // SDK, bypasses rules). Note and photo fields are merged directly from
+        // the client after the function resolves, so authenticated owners need
+        // write access.
+        allow write: if isOwner(uid) && isValidDateKey(dateKey);
       }
     }
 

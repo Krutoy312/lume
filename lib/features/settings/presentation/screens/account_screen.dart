@@ -3,12 +3,16 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../../core/theme/app_colors.dart';
 import '../../../../core/theme/app_text_styles.dart';
+import '../../../auth/domain/auth_failure.dart';
 import '../../../auth/presentation/providers/auth_provider.dart';
 import '../widgets/account_arrow_icon.dart';
 import '../widgets/account_delete_row.dart';
 import '../widgets/account_notifications_toggle.dart';
 import '../widgets/account_section_label.dart';
 import '../widgets/account_settings_card.dart';
+import '../widgets/care_time_bottom_sheet.dart';
+import '../widgets/edit_name_bottom_sheet.dart';
+import '../widgets/skin_type_bottom_sheet.dart';
 
 /// Account & settings screen.
 ///
@@ -75,7 +79,7 @@ class _AccountScreenState extends ConsumerState<AccountScreen> {
         children: [
           // ── Профиль ─────────────────────────────────────────────────────────
           AccountSectionLabel('Профиль'),
-          SizedBox(height: w * 0.092),
+          SizedBox(height: 12),
           AccountSettingsCard(
             w: w,
             rows: [
@@ -84,14 +88,16 @@ class _AccountScreenState extends ConsumerState<AccountScreen> {
                 title: 'Имя',
                 subtitle: name ?? 'Введите имя',
                 trailing: AccountArrowIcon(w: w),
-                onTap: () {},
+                onTap: () => showEditNameBottomSheet(context),
               ),
               AccountRowData(
                 icon: 'assets/icons/ic_type_skin.svg',
                 title: 'Тип кожи',
-                subtitle: skinType ?? 'Выберите тип кожи',
+                // Show the Russian label when a type is saved, hint otherwise.
+                subtitle: skinTypeLabel(skinType) ?? 'Выберите тип кожи',
                 trailing: AccountArrowIcon(w: w),
-                onTap: () {},
+                onTap: () =>
+                    showSkinTypeBottomSheet(context, currentSkinType: skinType),
               ),
               AccountRowData(
                 icon: 'assets/icons/ic_goal.svg',
@@ -102,20 +108,25 @@ class _AccountScreenState extends ConsumerState<AccountScreen> {
               ),
             ],
           ),
-          SizedBox(height: w * 0.061),
+          SizedBox(height: 24),
 
           // ── Настройки приложения ─────────────────────────────────────────────
           AccountSectionLabel('Настройки приложения'),
-          SizedBox(height: w * 0.092),
+          SizedBox(height: 12),
           AccountSettingsCard(
             w: w,
             rows: [
               AccountRowData(
                 icon: 'assets/icons/ic_remind.svg',
                 title: 'Напоминать об уходе в:',
-                subtitle: timeLabel.isNotEmpty ? timeLabel : '9:00 – 21:00',
+                subtitle: timeLabel.isNotEmpty ? timeLabel : '8:00 – 21:00',
                 trailing: AccountArrowIcon(w: w),
-                onTap: () {},
+                onTap: () => showCareTimeBottomSheet(
+                  context,
+                  // Pass current Firestore values so the pickers are pre-filled.
+                  morningMinutes: data?['morningMinutes'] as int?,
+                  eveningMinutes: data?['eveningMinutes'] as int?,
+                ),
               ),
               AccountRowData(
                 icon: 'assets/icons/ic_notification.svg',
@@ -127,11 +138,11 @@ class _AccountScreenState extends ConsumerState<AccountScreen> {
               ),
             ],
           ),
-          SizedBox(height: w * 0.061),
+          SizedBox(height: 24),
 
           // ── Обратная связь ───────────────────────────────────────────────────
           AccountSectionLabel('Обратная связь'),
-          SizedBox(height: w * 0.092),
+          SizedBox(height: 12),
           AccountSettingsCard(
             w: w,
             rows: [
@@ -192,9 +203,9 @@ class _AccountScreenState extends ConsumerState<AccountScreen> {
     _syncedFromDb = true;
     final dbVal = data['notificationsEnabled'] as bool?;
     if (dbVal != null && dbVal != _notificationsEnabled) {
-      WidgetsBinding.instance.addPostFrameCallback(
-        (_) { if (mounted) setState(() => _notificationsEnabled = dbVal); },
-      );
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted) setState(() => _notificationsEnabled = dbVal);
+      });
     }
   }
 
@@ -202,9 +213,11 @@ class _AccountScreenState extends ConsumerState<AccountScreen> {
   /// Accepts either String values ("9:00") or int minute-of-day values (540).
   String _resolveTimeLabel(Map<String, dynamic>? data) {
     if (data == null) return '';
-    final m = data['morningTime'] as String? ??
+    final m =
+        data['morningTime'] as String? ??
         _minutesToTime(data['morningMinutes'] as int?);
-    final e = data['eveningTime'] as String? ??
+    final e =
+        data['eveningTime'] as String? ??
         _minutesToTime(data['eveningMinutes'] as int?);
     if (m == null && e == null) return '';
     return '${m ?? '--:--'} – ${e ?? '--:--'}';
@@ -238,16 +251,20 @@ class _AccountScreenState extends ConsumerState<AccountScreen> {
     );
     if (!ok || !mounted) return;
 
-    final result = await AsyncValue.guard(
-      () => ref.read(authControllerProvider.notifier).deleteAccount(),
-    );
+    await ref.read(authControllerProvider.notifier).deleteAccount();
     if (!mounted) return;
-    if (result is AsyncError) {
+
+    // On success: GoRouter's _GoRouterRefreshStream detects authStateChanges(null)
+    // and automatically redirects to /login — no explicit navigation needed.
+    final authState = ref.read(authControllerProvider);
+    if (authState is AsyncError) {
+      final failure = authState.error;
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
+        SnackBar(
           content: Text(
-            'Не удалось удалить аккаунт. '
-            'Выйдите и войдите снова, затем повторите попытку.',
+            failure is AuthFailure
+                ? failure.message
+                : 'Не удалось удалить аккаунт. Выйдите и войдите снова, затем повторите попытку.',
           ),
         ),
       );

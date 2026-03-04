@@ -29,7 +29,8 @@
       "Bash(npx eslint:*)",
       "Bash(gcloud auth:*)",
       "Bash(gcloud config:*)",
-      "mcp__ide__getDiagnostics"
+      "mcp__ide__getDiagnostics",
+      "Bash(\"/c/Android Studio/jbr/bin/keytool\":*)"
     ]
   }
 }

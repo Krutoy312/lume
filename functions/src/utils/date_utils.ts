@@ -4,11 +4,10 @@ import type { UserData, StreakUpdate } from "../models/user.js";
 
 // ─── Metric registry ──────────────────────────────────────────────────────────
 
-/** All 12 skin metrics supported by the app. */
+/** All 7 skin metrics supported by the app (camelCase keys). */
 export const ALL_METRIC_KEYS = [
-  "matte", "richness", "elasticity", "hydration", "comfort",
-  "calmness", "smoothness", "skin_clarity", "pore_cleanliness",
-  "even_skin_tone", "radiance", "uv_protection",
+  "sebumBalance", "elasticity", "hydration", "smoothness",
+  "skinClarity", "porePurity", "evenTone",
 ] as const;
 
 // ─── Default document templates ───────────────────────────────────────────────
@@ -29,7 +28,7 @@ export const DEFAULT_USER: Omit<UserData, "name"> & { lastNameChangeDate: null }
   // allowed immediately (no 14-day cooldown on brand-new accounts).
   lastNameChangeDate: null,
   timezone: "UTC",
-  trackedMetrics: ["matte", "richness", "hydration", "comfort"],
+  trackedMetrics: ["sebumBalance", "skinClarity", "hydration", "porePurity"],
   hasSubscription: false,
   notificationsEnabled: false,
   morningMinutes: 480,

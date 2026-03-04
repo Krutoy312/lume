@@ -94,6 +94,22 @@ class AssessmentService {
     return data;
   }
 
+  // ── Tracked metrics ───────────────────────────────────────────────────────────
+
+  /// Persists [keys] as the user's active tracked-metric list in their profile.
+  ///
+  /// The change is picked up in real time by [userDocumentProvider], which
+  /// updates [trackedMetricsProvider] and causes the slider list to rebuild.
+  static Future<void> saveTrackedMetrics(List<String> keys) async {
+    final uid = _auth.currentUser?.uid;
+    if (uid == null) return;
+
+    await _firestore
+        .collection('users')
+        .doc(uid)
+        .update({'trackedMetrics': keys});
+  }
+
   // ── Note + photo URL ──────────────────────────────────────────────────────────
 
   /// Merges [note] and [photoUrl] into the existing daily assessment document.

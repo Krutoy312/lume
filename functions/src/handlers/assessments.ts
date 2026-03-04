@@ -126,10 +126,10 @@ export const saveDailyAssessment = onCall(
     const metricsMap = metrics as Record<string, unknown>;
     const requestedKeys = Object.keys(metricsMap);
 
-    if (requestedKeys.length === 0 || requestedKeys.length > 4) {
+    if (requestedKeys.length === 0 || requestedKeys.length > 7) {
       throw new HttpsError(
         "invalid-argument",
-        `'metrics' must contain 1–4 keys; received ${requestedKeys.length}.`
+        `'metrics' must contain 1–7 keys; received ${requestedKeys.length}.`
       );
     }
 

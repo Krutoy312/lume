@@ -7,8 +7,11 @@ import 'package:flutter_timezone/flutter_timezone.dart';
 import 'package:image_picker/image_picker.dart';
 
 import '../../../../../core/theme/app_colors.dart';
+import 'assessment_service.dart';
+import 'change_metrics_bottom_sheet.dart';
 import 'metric_slider_tile.dart';
 import 'metrics_controller.dart';
+import 'tracked_metrics_provider.dart';
 
 // ── Fullscreen photo viewer ────────────────────────────────────────────────────
 
@@ -57,7 +60,6 @@ class _FullscreenPhotoView extends StatelessWidget {
 
 // ── Skeleton blocks ────────────────────────────────────────────────────────────
 
-/// Static placeholder box shown while Firestore data is being fetched.
 class _SkeletonBox extends StatelessWidget {
   const _SkeletonBox(this.width, this.height, {this.radius = 8});
 
@@ -82,14 +84,13 @@ class _SkeletonBox extends StatelessWidget {
 
 /// Embedded daily skin-assessment section for the Progress screen.
 ///
-/// On first mount it calls [AssessmentNotifier.load] to check Firestore for
-/// today's document.  If a document is found:
-///   • Slider values, note, and photo URL are pre-populated.
-///   • The widget auto-collapses (expanded = false).
+/// On mount:
+///   1. Fetches today's Firestore document via [AssessmentNotifier.load].
+///   2. Auto-collapses if a document exists ([existsToday] = true).
+///   3. Renders only the sliders for the user's current [trackedMetricsProvider].
 ///
-/// While loading, a skeleton placeholder is shown inside the collapsible body.
-/// After a successful submit the widget re-fetches (acting as an "update") and
-/// collapses to reflect the saved state.
+/// "Изменить метрики" opens [ChangeMetricsBottomSheet]; on dismissal the new
+/// selection is written to Firestore and the slider list updates reactively.
 class DailyAssessmentSection extends ConsumerStatefulWidget {
   const DailyAssessmentSection({super.key});
 
@@ -109,7 +110,6 @@ class _DailyAssessmentSectionState
   void initState() {
     super.initState();
     _detectTimezone();
-    // Defer so the first build completes before we mutate the provider.
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (mounted) ref.read(assessmentProvider.notifier).load();
     });
@@ -144,11 +144,9 @@ class _DailyAssessmentSectionState
     }
   }
 
-  /// Clears both the local file pick and the Firestore network URL.
   void _removePhoto() =>
       ref.read(assessmentProvider.notifier).removePhoto();
 
-  /// Opens either the local file or the network URL fullscreen.
   void _openFullscreen() {
     final state = ref.read(assessmentProvider);
     Navigator.of(context).push(
@@ -167,11 +165,41 @@ class _DailyAssessmentSectionState
     );
   }
 
+  // ── Change metrics ─────────────────────────────────────────────────────────
+
+  /// Opens the metric selection sheet.  On any dismissal (swipe, backdrop,
+  /// back), saves the latest selection to Firestore if it changed.
+  Future<void> _openChangeMetrics() async {
+    final currentTracked = ref.read(trackedMetricsProvider);
+    List<String> latestSelection = List.from(currentTracked);
+
+    await ChangeMetricsBottomSheet.show(
+      context,
+      initialTracked: currentTracked,
+      onSelectionChanged: (updated) => latestSelection = updated,
+    );
+
+    if (!mounted) return;
+
+    // Only write to Firestore when the selection actually changed.
+    final a = Set<String>.from(currentTracked);
+    final b = Set<String>.from(latestSelection);
+    final changed = a.length != b.length || !a.containsAll(b);
+    if (!changed) return;
+
+    await AssessmentService.saveTrackedMetrics(latestSelection);
+    // trackedMetricsProvider rebuilds reactively via userDocumentProvider stream.
+  }
+
   // ── Submit ─────────────────────────────────────────────────────────────────
 
   Future<void> _submit() async {
+    // Capture tracked keys at the moment of submission.
+    final trackedKeys = ref.read(trackedMetricsProvider);
+
     await ref.read(assessmentProvider.notifier).submit(
       timezone: _timezone,
+      trackedKeys: trackedKeys,
       onSuccess: (_) {
         if (!mounted) return;
         ScaffoldMessenger.of(context).showSnackBar(
@@ -181,8 +209,7 @@ class _DailyAssessmentSectionState
             behavior: SnackBarBehavior.floating,
           ),
         );
-        // Re-fetch instead of reset so the form shows the saved state and
-        // collapses automatically (existsToday → true).
+        // Re-fetch so the form shows the saved state and collapses.
         ref.read(assessmentProvider.notifier).load();
       },
       onError: (err) {
@@ -205,19 +232,18 @@ class _DailyAssessmentSectionState
     final w = MediaQuery.sizeOf(context).width;
     final state = ref.watch(assessmentProvider);
     final notifier = ref.read(assessmentProvider.notifier);
+    final trackedKeys = ref.watch(trackedMetricsProvider);
 
-    // React to load completion: sync note controller + auto-collapse.
+    // Sync note controller + auto-collapse once the initial load finishes.
     ref.listen<AssessmentState>(assessmentProvider, (prev, next) {
       final wasLoading = prev?.loadState is AsyncLoading;
       final isDone = next.loadState is AsyncData;
       if (wasLoading && isDone) {
-        // Sync note field text with fetched value.
         if (_noteController.text != next.note) {
           _noteController.text = next.note;
           _noteController.selection =
               TextSelection.collapsed(offset: next.note.length);
         }
-        // Auto-collapse only if today's document exists.
         if (next.existsToday && _isExpanded) {
           setState(() => _isExpanded = false);
         }
@@ -240,10 +266,9 @@ class _DailyAssessmentSectionState
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          // ── Header (always visible, tap to collapse / expand) ───────────────
+          // ── Header ─────────────────────────────────────────────────────────
           GestureDetector(
             onTap: () {
-              // Disable toggle while data is still loading.
               if (!state.isLoadingData) {
                 setState(() => _isExpanded = !_isExpanded);
               }
@@ -265,7 +290,7 @@ class _DailyAssessmentSectionState
                     ),
                   ),
                 ),
-                // Arrow: ↑ expanded  |  ↓ collapsed
+                // Arrow: ↑ expanded | ↓ collapsed
                 Padding(
                   padding: EdgeInsets.only(top: w * 0.010),
                   child: AnimatedRotation(
@@ -293,7 +318,7 @@ class _DailyAssessmentSectionState
             curve: Curves.easeInOut,
             clipBehavior: Clip.hardEdge,
             child: _isExpanded
-                ? _buildBody(context, w, state, notifier)
+                ? _buildBody(context, w, state, notifier, trackedKeys)
                 : const SizedBox.shrink(),
           ),
         ],
@@ -308,22 +333,22 @@ class _DailyAssessmentSectionState
     double w,
     AssessmentState state,
     AssessmentNotifier notifier,
+    List<String> trackedKeys,
   ) {
-    if (state.isLoadingData) return _buildSkeleton(w);
+    if (state.isLoadingData) return _buildSkeleton(w, trackedKeys.length);
     if (state.hasLoadError) return _buildErrorBody(w);
-    return _buildContent(context, w, state, notifier);
+    return _buildContent(context, w, state, notifier, trackedKeys);
   }
 
   // ── Skeleton ───────────────────────────────────────────────────────────────
 
-  Widget _buildSkeleton(double w) {
+  Widget _buildSkeleton(double w, int count) {
     return Padding(
       padding: EdgeInsets.only(top: w * 0.061),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          // 4 metric skeleton rows
-          for (int i = 0; i < 4; i++) ...[
+          for (int i = 0; i < count; i++) ...[
             Row(
               children: [
                 _SkeletonBox(w * 0.048, w * 0.048, radius: 6),
@@ -337,13 +362,10 @@ class _DailyAssessmentSectionState
             _SkeletonBox(double.infinity, 4, radius: 4),
             SizedBox(height: w * 0.056),
           ],
-          // Note field
           _SkeletonBox(double.infinity, w * 0.122, radius: w * 0.038),
           SizedBox(height: w * 0.025),
-          // Change metrics button
           _SkeletonBox(double.infinity, w * 0.120, radius: w * 0.038),
           SizedBox(height: w * 0.025),
-          // Submit button
           _SkeletonBox(double.infinity, w * 0.120, radius: w * 0.041),
         ],
       ),
@@ -368,9 +390,9 @@ class _DailyAssessmentSectionState
           SizedBox(height: w * 0.025),
           GestureDetector(
             onTap: () => ref.read(assessmentProvider.notifier).load(),
-            child: Text(
+            child: const Text(
               'Повторить',
-              style: const TextStyle(
+              style: TextStyle(
                 fontFamily: 'SF Pro',
                 fontSize: 14,
                 fontWeight: FontWeight.w600,
@@ -390,8 +412,14 @@ class _DailyAssessmentSectionState
     double w,
     AssessmentState state,
     AssessmentNotifier notifier,
+    List<String> trackedKeys,
   ) {
-    // Determine which photo source is active (local takes priority).
+    // Filter kAllMetrics to only the user's current tracked subset,
+    // preserving the canonical order from kAllMetrics.
+    final trackedSet = Set<String>.from(trackedKeys);
+    final activeMetrics =
+        kAllMetrics.where((m) => trackedSet.contains(m.key)).toList();
+
     final hasLocalPhoto = state.photo != null;
     final hasNetworkPhoto = state.photoUrl != null && !hasLocalPhoto;
     final hasAnyPhoto = hasLocalPhoto || hasNetworkPhoto;
@@ -401,8 +429,8 @@ class _DailyAssessmentSectionState
       children: [
         SizedBox(height: w * 0.061),
 
-        // ── Metric sliders ────────────────────────────────────────────────────
-        for (final m in kDefaultMetrics)
+        // ── Metric sliders (tracked only) ──────────────────────────────────
+        for (final m in activeMetrics)
           MetricSliderTile(
             iconPath: m.iconPath,
             label: m.label,
@@ -410,13 +438,12 @@ class _DailyAssessmentSectionState
             onChanged: (v) => notifier.setMetric(m.key, v),
           ),
 
-        // ── Photo thumbnail ───────────────────────────────────────────────────
+        // ── Photo thumbnail ────────────────────────────────────────────────
         if (hasAnyPhoto) ...[
           ClipRRect(
             borderRadius: BorderRadius.circular(w * 0.025),
             child: Stack(
               children: [
-                // Tappable image → fullscreen
                 GestureDetector(
                   onTap: _openFullscreen,
                   child: Hero(
@@ -448,7 +475,6 @@ class _DailyAssessmentSectionState
                           ),
                   ),
                 ),
-                // Remove button — on top, absorbs its own tap.
                 Positioned(
                   top: w * 0.015,
                   right: w * 0.015,
@@ -474,7 +500,7 @@ class _DailyAssessmentSectionState
           SizedBox(height: w * 0.030),
         ],
 
-        // ── Auto-expanding note + photo-picker row ────────────────────────────
+        // ── Note + photo-picker row ────────────────────────────────────────
         Container(
           decoration: BoxDecoration(
             border: Border.all(color: Colors.transparent, width: 1),
@@ -516,8 +542,7 @@ class _DailyAssessmentSectionState
                 onTap: _pickPhoto,
                 behavior: HitTestBehavior.opaque,
                 child: Padding(
-                  padding:
-                      EdgeInsets.symmetric(horizontal: w * 0.025),
+                  padding: EdgeInsets.symmetric(horizontal: w * 0.025),
                   child: SvgPicture.asset(
                     'assets/icons/ic_add_photo.svg',
                     width: w * 0.051,
@@ -537,12 +562,12 @@ class _DailyAssessmentSectionState
 
         SizedBox(height: w * 0.025),
 
-        // ── Change metrics button ─────────────────────────────────────────────
-        _ChangeMetricsButton(w: w),
+        // ── Change metrics button ──────────────────────────────────────────
+        _ChangeMetricsButton(w: w, onTap: _openChangeMetrics),
 
         SizedBox(height: w * 0.025),
 
-        // ── Save / Update button ──────────────────────────────────────────────
+        // ── Save / Update button ───────────────────────────────────────────
         _SubmitButton(
           w: w,
           isLoading: state.isLoading,
@@ -557,16 +582,15 @@ class _DailyAssessmentSectionState
 // ── Change metrics button ──────────────────────────────────────────────────────
 
 class _ChangeMetricsButton extends StatelessWidget {
-  const _ChangeMetricsButton({required this.w});
+  const _ChangeMetricsButton({required this.w, required this.onTap});
 
   final double w;
+  final VoidCallback onTap;
 
   @override
   Widget build(BuildContext context) {
     return GestureDetector(
-      onTap: () {
-        // TODO: open metric selection sheet
-      },
+      onTap: onTap,
       child: Container(
         height: w * 0.120,
         decoration: BoxDecoration(

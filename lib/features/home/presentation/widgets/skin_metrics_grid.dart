@@ -16,10 +16,10 @@ class _MetricData {
 }
 
 const _metrics = [
-  _MetricData(label: 'Матовость', value: 6, assetPath: 'assets/icons/ic_haze.svg'),
-  _MetricData(label: 'Насыщенность', value: 7, assetPath: 'assets/icons/ic_saturation.svg'),
-  _MetricData(label: 'Увлажнённость', value: 8, assetPath: 'assets/icons/ic_moisture.svg'),
-  _MetricData(label: 'Комфорт', value: 4, assetPath: 'assets/icons/ic_comfort.svg'),
+  _MetricData(label: 'Баланс себума', value: 6, assetPath: 'assets/icons/ic_sebum_balance.svg'),
+  _MetricData(label: 'Эластичность', value: 7, assetPath: 'assets/icons/ic_elasticity.svg'),
+  _MetricData(label: 'Увлажнённость', value: 8, assetPath: 'assets/icons/ic_hydration.svg'),
+  _MetricData(label: 'Гладкость', value: 4, assetPath: 'assets/icons/ic_smoothness.svg'),
 ];
 
 class SkinMetricsGrid extends StatelessWidget {

@@ -17,27 +17,43 @@ class MetricMeta {
   final String iconPath;
 }
 
-/// The 4 default active metrics shown in the assessment screen.
-const kDefaultMetrics = [
+/// Full pool of 7 trackable metrics (camelCase keys, matching Firestore + CF).
+/// Icons are verified present in assets/icons/.
+const kAllMetrics = [
   MetricMeta(
-    key: 'matte',
-    label: 'Матовость',
-    iconPath: 'assets/icons/ic_haze.svg',
+    key: 'sebumBalance',
+    label: 'Баланс себума',
+    iconPath: 'assets/icons/ic_sebum_balance.svg',
   ),
   MetricMeta(
-    key: 'richness',
-    label: 'Насыщенность',
-    iconPath: 'assets/icons/ic_saturation.svg',
+    key: 'elasticity',
+    label: 'Эластичность',
+    iconPath: 'assets/icons/ic_elasticity.svg',
   ),
   MetricMeta(
     key: 'hydration',
     label: 'Увлажнённость',
-    iconPath: 'assets/icons/ic_moisture.svg',
+    iconPath: 'assets/icons/ic_hydration.svg',
   ),
   MetricMeta(
-    key: 'comfort',
-    label: 'Комфорт',
-    iconPath: 'assets/icons/ic_comfort.svg',
+    key: 'smoothness',
+    label: 'Гладкость',
+    iconPath: 'assets/icons/ic_smoothness.svg',
+  ),
+  MetricMeta(
+    key: 'skinClarity',
+    label: 'Чистота кожи',
+    iconPath: 'assets/icons/ic_skin_clarity.svg',
+  ),
+  MetricMeta(
+    key: 'porePurity',
+    label: 'Чистота пор',
+    iconPath: 'assets/icons/ic_pore_purity.svg',
+  ),
+  MetricMeta(
+    key: 'evenTone',
+    label: 'Ровный тон',
+    iconPath: 'assets/icons/ic_even_tone.svg',
   ),
 ];
 
@@ -54,11 +70,12 @@ class AssessmentState {
     this.existsToday = false,
   });
 
+  /// All 7 metric values (keys from [kAllMetrics]) initialised to 5.0.
   factory AssessmentState.initial() => AssessmentState(
-        metrics: {for (final m in kDefaultMetrics) m.key: 5.0},
+        metrics: {for (final m in kAllMetrics) m.key: 5.0},
       );
 
-  /// Current slider values keyed by [MetricMeta.key].
+  /// Current slider values keyed by [MetricMeta.key] for all 7 metrics.
   final Map<String, double> metrics;
 
   /// Locally picked photo file (takes display priority over [photoUrl]).
@@ -145,7 +162,6 @@ class AssessmentNotifier extends StateNotifier<AssessmentState> {
       final data = await AssessmentService.fetchTodayAssessment();
 
       if (data == null) {
-        // No document for today — start fresh.
         state = state._copy(
           loadState: const AsyncData(null),
           existsToday: false,
@@ -153,20 +169,16 @@ class AssessmentNotifier extends StateNotifier<AssessmentState> {
         return;
       }
 
-      // The Cloud Function nests all metric values under a 'metrics' sub-map:
-      //   { dateKey, metrics: { matte: 7, richness: 8, … }, note, photoUrl }
-      // Reading from the top-level data map would always return null and fall
-      // back to the default 5.0, which is the bug that kept sliders at default.
+      // The CF stores metric values under a nested 'metrics' sub-map.
       final rawMetrics =
           (data['metrics'] as Map<String, dynamic>?) ?? <String, dynamic>{};
 
       // ignore: avoid_print
       print('[AssessmentProvider] rawMetrics from Firestore: $rawMetrics');
 
-      // Cast every value to double — Firestore returns integers for whole
-      // numbers, so (num?)?.toDouble() handles both int and double safely.
+      // Merge fetched values into current state — unset keys stay at 5.0.
       final metrics = <String, double>{
-        for (final m in kDefaultMetrics)
+        for (final m in kAllMetrics)
           m.key: (rawMetrics[m.key] as num?)?.toDouble() ?? 5.0,
       };
 
@@ -186,13 +198,17 @@ class AssessmentNotifier extends StateNotifier<AssessmentState> {
 
   // ── Submit (create or update) ─────────────────────────────────────────────
 
+  /// Saves the assessment.
+  ///
+  /// Only the [trackedKeys] subset of [state.metrics] is sent to the Cloud
+  /// Function — untracked metrics are not written, preserving any previously
+  /// saved values for those keys in Firestore.
   Future<void> submit({
     required String timezone,
+    required List<String> trackedKeys,
     required void Function(String dateKey) onSuccess,
     required void Function(String error) onError,
   }) async {
-    // Set loading immediately — the Submit button shows CircularProgressIndicator
-    // for the entire operation, including the photo upload phase.
     state = state._copy(submissionState: const AsyncLoading());
     try {
       // Step 1: Upload photo first so the URL is ready before the CF call.
@@ -201,10 +217,11 @@ class AssessmentNotifier extends StateNotifier<AssessmentState> {
         photoUrl = await AssessmentService.uploadPhoto(state.photo!.path);
       }
 
-      // Step 2: Call the Cloud Function — creates/updates the assessment doc
-      //         and returns the server-computed dateKey.
-      final metricsInt = state.metrics.map(
-        (k, v) => MapEntry(k, v.round()),
+      // Step 2: Call the Cloud Function with only the tracked metrics.
+      final metricsInt = Map.fromEntries(
+        state.metrics.entries
+            .where((e) => trackedKeys.contains(e.key))
+            .map((e) => MapEntry(e.key, e.value.round())),
       );
       final dateKey = await AssessmentService.saveMetrics(
         timezone: timezone,
@@ -231,7 +248,6 @@ class AssessmentNotifier extends StateNotifier<AssessmentState> {
   void clearSubmissionError() =>
       state = state._copy(submissionState: const AsyncData(null));
 
-  /// Resets the entire form back to its initial state.
   void reset() => state = AssessmentState.initial();
 }
 

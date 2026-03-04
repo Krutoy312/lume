@@ -64,6 +64,36 @@ class AssessmentService {
     return result.data['dateKey'] as String;
   }
 
+  // ── Fetch today ───────────────────────────────────────────────────────────────
+
+  /// Returns the raw Firestore document data for today's assessment, or `null`
+  /// if no document exists yet.
+  ///
+  /// Uses `DateTime.now()` (local time) to derive the dateKey, which matches
+  /// the key the Cloud Function computes when given the same local timezone.
+  static Future<Map<String, dynamic>?> fetchTodayAssessment() async {
+    final uid = _auth.currentUser?.uid;
+    if (uid == null) return null;
+
+    final now = DateTime.now();
+    final dateKey = '${now.year.toString().padLeft(4, '0')}'
+        '-${now.month.toString().padLeft(2, '0')}'
+        '-${now.day.toString().padLeft(2, '0')}';
+
+    final doc = await _firestore
+        .collection('users')
+        .doc(uid)
+        .collection('daily_assessments')
+        .doc(dateKey)
+        .get();
+
+    if (!doc.exists || doc.data() == null) return null;
+    final data = doc.data()!;
+    // ignore: avoid_print
+    print('[AssessmentService] fetchTodayAssessment($dateKey): $data');
+    return data;
+  }
+
   // ── Note + photo URL ──────────────────────────────────────────────────────────
 
   /// Merges [note] and [photoUrl] into the existing daily assessment document.

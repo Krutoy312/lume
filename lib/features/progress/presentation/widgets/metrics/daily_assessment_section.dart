@@ -12,13 +12,34 @@ import 'metrics_controller.dart';
 
 // ── Fullscreen photo viewer ────────────────────────────────────────────────────
 
+/// Displays a single photo fullscreen with a fade-in transition.
+/// Accepts either a local [localPath] (XFile) or a [networkUrl] from Firestore.
+/// Tap anywhere to dismiss.
 class _FullscreenPhotoView extends StatelessWidget {
-  const _FullscreenPhotoView({required this.path});
+  const _FullscreenPhotoView({this.localPath, this.networkUrl})
+      : assert(localPath != null || networkUrl != null,
+            'Provide localPath or networkUrl');
 
-  final String path;
+  final String? localPath;
+  final String? networkUrl;
 
   @override
   Widget build(BuildContext context) {
+    final imageWidget = localPath != null
+        ? Image.file(File(localPath!), fit: BoxFit.contain)
+        : Image.network(
+            networkUrl!,
+            fit: BoxFit.contain,
+            loadingBuilder: (_, child, progress) => progress == null
+                ? child
+                : const Center(
+                    child: CircularProgressIndicator(
+                      color: AppColors.golden,
+                      strokeWidth: 2,
+                    ),
+                  ),
+          );
+
     return GestureDetector(
       onTap: () => Navigator.of(context).pop(),
       child: Scaffold(
@@ -26,12 +47,32 @@ class _FullscreenPhotoView extends StatelessWidget {
         body: Center(
           child: Hero(
             tag: 'assessment_photo_hero',
-            child: Image.file(
-              File(path),
-              fit: BoxFit.contain,
-            ),
+            child: imageWidget,
           ),
         ),
+      ),
+    );
+  }
+}
+
+// ── Skeleton blocks ────────────────────────────────────────────────────────────
+
+/// Static placeholder box shown while Firestore data is being fetched.
+class _SkeletonBox extends StatelessWidget {
+  const _SkeletonBox(this.width, this.height, {this.radius = 8});
+
+  final double width;
+  final double height;
+  final double radius;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      width: width,
+      height: height,
+      decoration: BoxDecoration(
+        color: const Color(0xFFEFEFEF),
+        borderRadius: BorderRadius.circular(radius),
       ),
     );
   }
@@ -41,15 +82,14 @@ class _FullscreenPhotoView extends StatelessWidget {
 
 /// Embedded daily skin-assessment section for the Progress screen.
 ///
-/// Renders as a single white card (no [Scaffold]) so it can live inside any
-/// parent scroll view.  Contains:
-///   • Card header — "Как себя чувствует твоя кожа?" + collapsible arrow.
-///   • 4 metric sliders with golden gradient track (hidden when collapsed).
-///   • Optional photo thumbnail (tappable for fullscreen) with remove button.
-///   • Auto-expanding note field + photo-picker icon.
-///   • "Изменить метрики" thin-border button.
-///   • "Сохранить" — calls [saveDailyAssessment] Cloud Function, merges note +
-///     photo into Firestore, shows a SnackBar, and resets the form.
+/// On first mount it calls [AssessmentNotifier.load] to check Firestore for
+/// today's document.  If a document is found:
+///   • Slider values, note, and photo URL are pre-populated.
+///   • The widget auto-collapses (expanded = false).
+///
+/// While loading, a skeleton placeholder is shown inside the collapsible body.
+/// After a successful submit the widget re-fetches (acting as an "update") and
+/// collapses to reflect the saved state.
 class DailyAssessmentSection extends ConsumerStatefulWidget {
   const DailyAssessmentSection({super.key});
 
@@ -69,6 +109,10 @@ class _DailyAssessmentSectionState
   void initState() {
     super.initState();
     _detectTimezone();
+    // Defer so the first build completes before we mutate the provider.
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) ref.read(assessmentProvider.notifier).load();
+    });
   }
 
   @override
@@ -100,19 +144,23 @@ class _DailyAssessmentSectionState
     }
   }
 
+  /// Clears both the local file pick and the Firestore network URL.
   void _removePhoto() =>
-      ref.read(assessmentProvider.notifier).setPhoto(null);
+      ref.read(assessmentProvider.notifier).removePhoto();
 
-  void _openFullscreen(String path) {
+  /// Opens either the local file or the network URL fullscreen.
+  void _openFullscreen() {
+    final state = ref.read(assessmentProvider);
     Navigator.of(context).push(
       PageRouteBuilder<void>(
         opaque: false,
         barrierColor: Colors.black87,
-        pageBuilder: (_, __, ___) => _FullscreenPhotoView(path: path),
-        transitionsBuilder: (_, animation, __, child) => FadeTransition(
-          opacity: animation,
-          child: child,
+        pageBuilder: (_, __, ___) => _FullscreenPhotoView(
+          localPath: state.photo?.path,
+          networkUrl: state.photo == null ? state.photoUrl : null,
         ),
+        transitionsBuilder: (_, animation, __, child) =>
+            FadeTransition(opacity: animation, child: child),
         transitionDuration: const Duration(milliseconds: 220),
         reverseTransitionDuration: const Duration(milliseconds: 180),
       ),
@@ -133,8 +181,9 @@ class _DailyAssessmentSectionState
             behavior: SnackBarBehavior.floating,
           ),
         );
-        _noteController.clear();
-        ref.read(assessmentProvider.notifier).reset();
+        // Re-fetch instead of reset so the form shows the saved state and
+        // collapses automatically (existsToday → true).
+        ref.read(assessmentProvider.notifier).load();
       },
       onError: (err) {
         if (!mounted) return;
@@ -157,6 +206,24 @@ class _DailyAssessmentSectionState
     final state = ref.watch(assessmentProvider);
     final notifier = ref.read(assessmentProvider.notifier);
 
+    // React to load completion: sync note controller + auto-collapse.
+    ref.listen<AssessmentState>(assessmentProvider, (prev, next) {
+      final wasLoading = prev?.loadState is AsyncLoading;
+      final isDone = next.loadState is AsyncData;
+      if (wasLoading && isDone) {
+        // Sync note field text with fetched value.
+        if (_noteController.text != next.note) {
+          _noteController.text = next.note;
+          _noteController.selection =
+              TextSelection.collapsed(offset: next.note.length);
+        }
+        // Auto-collapse only if today's document exists.
+        if (next.existsToday && _isExpanded) {
+          setState(() => _isExpanded = false);
+        }
+      }
+    });
+
     return Container(
       padding: EdgeInsets.all(w * 0.051),
       decoration: BoxDecoration(
@@ -173,9 +240,14 @@ class _DailyAssessmentSectionState
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          // ── Header (tap to collapse / expand) ──────────────────────────────
+          // ── Header (always visible, tap to collapse / expand) ───────────────
           GestureDetector(
-            onTap: () => setState(() => _isExpanded = !_isExpanded),
+            onTap: () {
+              // Disable toggle while data is still loading.
+              if (!state.isLoadingData) {
+                setState(() => _isExpanded = !_isExpanded);
+              }
+            },
             behavior: HitTestBehavior.opaque,
             child: Row(
               crossAxisAlignment: CrossAxisAlignment.start,
@@ -193,7 +265,7 @@ class _DailyAssessmentSectionState
                     ),
                   ),
                 ),
-                // Animated arrow: ↑ expanded  |  ↓ collapsed
+                // Arrow: ↑ expanded  |  ↓ collapsed
                 Padding(
                   padding: EdgeInsets.only(top: w * 0.010),
                   child: AnimatedRotation(
@@ -221,150 +293,263 @@ class _DailyAssessmentSectionState
             curve: Curves.easeInOut,
             clipBehavior: Clip.hardEdge,
             child: _isExpanded
-                ? Column(
-                    crossAxisAlignment: CrossAxisAlignment.stretch,
-                    children: [
-                      SizedBox(height: w * 0.061),
-
-                      // ── Metric sliders ──────────────────────────────────────
-                      for (final m in kDefaultMetrics)
-                        MetricSliderTile(
-                          iconPath: m.iconPath,
-                          label: m.label,
-                          value: state.metrics[m.key] ?? 5.0,
-                          onChanged: (v) => notifier.setMetric(m.key, v),
-                        ),
-
-                      // ── Photo thumbnail ─────────────────────────────────────
-                      if (state.photo != null) ...[
-                        ClipRRect(
-                          borderRadius: BorderRadius.circular(w * 0.025),
-                          child: Stack(
-                            children: [
-                              // Tappable image → fullscreen
-                              GestureDetector(
-                                onTap: () =>
-                                    _openFullscreen(state.photo!.path),
-                                child: Hero(
-                                  tag: 'assessment_photo_hero',
-                                  child: Image.file(
-                                    File(state.photo!.path),
-                                    width: double.infinity,
-                                    height: w * 0.350,
-                                    fit: BoxFit.cover,
-                                  ),
-                                ),
-                              ),
-                              // Remove button (on top, absorbs its own tap)
-                              Positioned(
-                                top: w * 0.015,
-                                right: w * 0.015,
-                                child: GestureDetector(
-                                  onTap: _removePhoto,
-                                  child: Container(
-                                    padding: EdgeInsets.all(w * 0.010),
-                                    decoration: const BoxDecoration(
-                                      color: Color(0x99000000),
-                                      shape: BoxShape.circle,
-                                    ),
-                                    child: Icon(
-                                      Icons.close,
-                                      color: Colors.white,
-                                      size: w * 0.038,
-                                    ),
-                                  ),
-                                ),
-                              ),
-                            ],
-                          ),
-                        ),
-                        SizedBox(height: w * 0.030),
-                      ],
-
-                      // ── Auto-expanding note + photo-picker row ──────────────
-                      Container(
-                        decoration: BoxDecoration(
-                          border: Border.all(
-                            color: Colors.transparent,
-                            width: 1,
-                          ),
-                          borderRadius: BorderRadius.circular(w * 0.038),
-                        ),
-                        child: Row(
-                          crossAxisAlignment: CrossAxisAlignment.center,
-                          children: [
-                            SizedBox(width: w * 0.038),
-                            Expanded(
-                              child: TextField(
-                                controller: _noteController,
-                                maxLines: null,
-                                keyboardType: TextInputType.multiline,
-                                style: const TextStyle(
-                                  fontFamily: 'SF Pro',
-                                  fontSize: 12,
-                                  fontWeight: FontWeight.w400,
-                                  color: AppColors.primaryDark,
-                                ),
-                                decoration: InputDecoration(
-                                  hintText: 'Добавить заметку...',
-                                  hintStyle: const TextStyle(
-                                    fontFamily: 'SF Pro',
-                                    fontSize: 12,
-                                    fontWeight: FontWeight.w300,
-                                    color: AppColors.primaryLighter,
-                                    letterSpacing: -0.5,
-                                  ),
-                                  border: InputBorder.none,
-                                  isDense: false,
-                                  contentPadding: EdgeInsets.symmetric(
-                                    vertical: w * 0.040,
-                                  ),
-                                ),
-                                onChanged: notifier.setNote,
-                              ),
-                            ),
-                            GestureDetector(
-                              onTap: _pickPhoto,
-                              behavior: HitTestBehavior.opaque,
-                              child: Padding(
-                                padding: EdgeInsets.symmetric(
-                                    horizontal: w * 0.025),
-                                child: SvgPicture.asset(
-                                  'assets/icons/ic_add_photo.svg',
-                                  width: w * 0.051,
-                                  height: w * 0.051,
-                                  colorFilter: ColorFilter.mode(
-                                    state.photo != null
-                                        ? AppColors.golden
-                                        : AppColors.primaryLight,
-                                    BlendMode.srcIn,
-                                  ),
-                                ),
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
-
-                      SizedBox(height: w * 0.025),
-
-                      // ── Change metrics button ───────────────────────────────
-                      _ChangeMetricsButton(w: w),
-
-                      SizedBox(height: w * 0.025),
-
-                      // ── Save button ─────────────────────────────────────────
-                      _SubmitButton(
-                        w: w,
-                        isLoading: state.isLoading,
-                        onTap: _submit,
-                      ),
-                    ],
-                  )
+                ? _buildBody(context, w, state, notifier)
                 : const SizedBox.shrink(),
           ),
         ],
       ),
+    );
+  }
+
+  // ── Body dispatcher ────────────────────────────────────────────────────────
+
+  Widget _buildBody(
+    BuildContext context,
+    double w,
+    AssessmentState state,
+    AssessmentNotifier notifier,
+  ) {
+    if (state.isLoadingData) return _buildSkeleton(w);
+    if (state.hasLoadError) return _buildErrorBody(w);
+    return _buildContent(context, w, state, notifier);
+  }
+
+  // ── Skeleton ───────────────────────────────────────────────────────────────
+
+  Widget _buildSkeleton(double w) {
+    return Padding(
+      padding: EdgeInsets.only(top: w * 0.061),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          // 4 metric skeleton rows
+          for (int i = 0; i < 4; i++) ...[
+            Row(
+              children: [
+                _SkeletonBox(w * 0.048, w * 0.048, radius: 6),
+                SizedBox(width: w * 0.025),
+                Expanded(child: _SkeletonBox(double.infinity, 14, radius: 6)),
+                SizedBox(width: w * 0.051),
+                _SkeletonBox(w * 0.071, w * 0.071, radius: 6),
+              ],
+            ),
+            SizedBox(height: w * 0.020),
+            _SkeletonBox(double.infinity, 4, radius: 4),
+            SizedBox(height: w * 0.056),
+          ],
+          // Note field
+          _SkeletonBox(double.infinity, w * 0.122, radius: w * 0.038),
+          SizedBox(height: w * 0.025),
+          // Change metrics button
+          _SkeletonBox(double.infinity, w * 0.120, radius: w * 0.038),
+          SizedBox(height: w * 0.025),
+          // Submit button
+          _SkeletonBox(double.infinity, w * 0.120, radius: w * 0.041),
+        ],
+      ),
+    );
+  }
+
+  // ── Error body ─────────────────────────────────────────────────────────────
+
+  Widget _buildErrorBody(double w) {
+    return Padding(
+      padding: EdgeInsets.only(top: w * 0.061),
+      child: Column(
+        children: [
+          const Text(
+            'Не удалось загрузить данные',
+            style: TextStyle(
+              fontFamily: 'SF Pro',
+              fontSize: 14,
+              color: AppColors.primaryMedium,
+            ),
+          ),
+          SizedBox(height: w * 0.025),
+          GestureDetector(
+            onTap: () => ref.read(assessmentProvider.notifier).load(),
+            child: Text(
+              'Повторить',
+              style: const TextStyle(
+                fontFamily: 'SF Pro',
+                fontSize: 14,
+                fontWeight: FontWeight.w600,
+                color: AppColors.golden,
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  // ── Full content body ──────────────────────────────────────────────────────
+
+  Widget _buildContent(
+    BuildContext context,
+    double w,
+    AssessmentState state,
+    AssessmentNotifier notifier,
+  ) {
+    // Determine which photo source is active (local takes priority).
+    final hasLocalPhoto = state.photo != null;
+    final hasNetworkPhoto = state.photoUrl != null && !hasLocalPhoto;
+    final hasAnyPhoto = hasLocalPhoto || hasNetworkPhoto;
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        SizedBox(height: w * 0.061),
+
+        // ── Metric sliders ────────────────────────────────────────────────────
+        for (final m in kDefaultMetrics)
+          MetricSliderTile(
+            iconPath: m.iconPath,
+            label: m.label,
+            value: state.metrics[m.key] ?? 5.0,
+            onChanged: (v) => notifier.setMetric(m.key, v),
+          ),
+
+        // ── Photo thumbnail ───────────────────────────────────────────────────
+        if (hasAnyPhoto) ...[
+          ClipRRect(
+            borderRadius: BorderRadius.circular(w * 0.025),
+            child: Stack(
+              children: [
+                // Tappable image → fullscreen
+                GestureDetector(
+                  onTap: _openFullscreen,
+                  child: Hero(
+                    tag: 'assessment_photo_hero',
+                    child: hasLocalPhoto
+                        ? Image.file(
+                            File(state.photo!.path),
+                            width: double.infinity,
+                            height: w * 0.350,
+                            fit: BoxFit.cover,
+                          )
+                        : Image.network(
+                            state.photoUrl!,
+                            width: double.infinity,
+                            height: w * 0.350,
+                            fit: BoxFit.cover,
+                            loadingBuilder: (_, child, progress) =>
+                                progress == null
+                                    ? child
+                                    : SizedBox(
+                                        height: w * 0.350,
+                                        child: const Center(
+                                          child: CircularProgressIndicator(
+                                            color: AppColors.golden,
+                                            strokeWidth: 2,
+                                          ),
+                                        ),
+                                      ),
+                          ),
+                  ),
+                ),
+                // Remove button — on top, absorbs its own tap.
+                Positioned(
+                  top: w * 0.015,
+                  right: w * 0.015,
+                  child: GestureDetector(
+                    onTap: _removePhoto,
+                    child: Container(
+                      padding: EdgeInsets.all(w * 0.010),
+                      decoration: const BoxDecoration(
+                        color: Color(0x99000000),
+                        shape: BoxShape.circle,
+                      ),
+                      child: Icon(
+                        Icons.close,
+                        color: Colors.white,
+                        size: w * 0.038,
+                      ),
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+          SizedBox(height: w * 0.030),
+        ],
+
+        // ── Auto-expanding note + photo-picker row ────────────────────────────
+        Container(
+          decoration: BoxDecoration(
+            border: Border.all(color: Colors.transparent, width: 1),
+            borderRadius: BorderRadius.circular(w * 0.038),
+          ),
+          child: Row(
+            crossAxisAlignment: CrossAxisAlignment.center,
+            children: [
+              SizedBox(width: w * 0.038),
+              Expanded(
+                child: TextField(
+                  controller: _noteController,
+                  maxLines: null,
+                  keyboardType: TextInputType.multiline,
+                  style: const TextStyle(
+                    fontFamily: 'SF Pro',
+                    fontSize: 12,
+                    fontWeight: FontWeight.w400,
+                    color: AppColors.primaryDark,
+                  ),
+                  decoration: InputDecoration(
+                    hintText: 'Добавить заметку...',
+                    hintStyle: const TextStyle(
+                      fontFamily: 'SF Pro',
+                      fontSize: 12,
+                      fontWeight: FontWeight.w300,
+                      color: AppColors.primaryLighter,
+                      letterSpacing: -0.5,
+                    ),
+                    border: InputBorder.none,
+                    isDense: false,
+                    contentPadding:
+                        EdgeInsets.symmetric(vertical: w * 0.040),
+                  ),
+                  onChanged: notifier.setNote,
+                ),
+              ),
+              GestureDetector(
+                onTap: _pickPhoto,
+                behavior: HitTestBehavior.opaque,
+                child: Padding(
+                  padding:
+                      EdgeInsets.symmetric(horizontal: w * 0.025),
+                  child: SvgPicture.asset(
+                    'assets/icons/ic_add_photo.svg',
+                    width: w * 0.051,
+                    height: w * 0.051,
+                    colorFilter: ColorFilter.mode(
+                      hasAnyPhoto
+                          ? AppColors.golden
+                          : AppColors.primaryLight,
+                      BlendMode.srcIn,
+                    ),
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ),
+
+        SizedBox(height: w * 0.025),
+
+        // ── Change metrics button ─────────────────────────────────────────────
+        _ChangeMetricsButton(w: w),
+
+        SizedBox(height: w * 0.025),
+
+        // ── Save / Update button ──────────────────────────────────────────────
+        _SubmitButton(
+          w: w,
+          isLoading: state.isLoading,
+          label: state.existsToday ? 'Обновить' : 'Сохранить',
+          onTap: _submit,
+        ),
+      ],
     );
   }
 }
@@ -414,11 +599,13 @@ class _SubmitButton extends StatelessWidget {
   const _SubmitButton({
     required this.w,
     required this.isLoading,
+    required this.label,
     required this.onTap,
   });
 
   final double w;
   final bool isLoading;
+  final String label;
   final VoidCallback onTap;
 
   @override
@@ -448,9 +635,9 @@ class _SubmitButton extends StatelessWidget {
                   color: AppColors.golden,
                   strokeWidth: 2,
                 )
-              : const Text(
-                  'Сохранить',
-                  style: TextStyle(
+              : Text(
+                  label,
+                  style: const TextStyle(
                     fontFamily: 'SF Pro',
                     fontSize: 14,
                     fontWeight: FontWeight.w700,

@@ -5,6 +5,7 @@ import '../../../../core/theme/app_colors.dart';
 import '../../../../core/theme/app_text_styles.dart';
 import '../../data/mock_assessments_generator.dart';
 import '../widgets/chart/metrics_chart_widget.dart';
+import '../widgets/calendar/calendar_view.dart';
 import '../widgets/metrics/daily_assessment_section.dart';
 
 class ProgressScreen extends StatelessWidget {
@@ -37,6 +38,11 @@ class ProgressScreen extends StatelessWidget {
 
               // ── Metrics trend chart ────────────────────────────────────
               const MetricsChartWidget(),
+
+              SizedBox(height: w * 0.051),
+
+              // ── Calendar + comparison ──────────────────────────────────
+              const CalendarView(),
 
               // ── [DEV] Mock data button — debug builds only ─────────────
               if (kDebugMode) ...[

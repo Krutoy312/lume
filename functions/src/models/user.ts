@@ -1,9 +1,26 @@
 // Shared domain interfaces used across Cloud Functions and exported for tests.
 
+/** A single skincare product stored on the user's shelf. */
+export interface Product {
+  /** Unique identifier (UUID or Firestore doc ID). */
+  id: string;
+  /** Display name of the product. */
+  name: string;
+  /** Category, e.g. "Cleanser", "Moisturizer", "Serum". */
+  category: string;
+  /** Optional URL to a product photo. */
+  photoUrl?: string | null;
+  /**
+   * Optional weekly schedule — ISO weekday numbers (1 = Monday … 7 = Sunday).
+   * Null/absent means the product has no specific schedule (apply every day).
+   */
+  schedule?: number[] | null;
+}
+
 export interface ShelfData {
-  my: { morning: string[]; evening: string[] };
-  favorites: string[];
-  toTry: string[];
+  my: { morning: Product[]; evening: Product[] };
+  favorites: Product[];
+  toTry: Product[];
 }
 
 export interface UserData {

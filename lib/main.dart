@@ -12,7 +12,6 @@ Future<void> main() async {
     options: DefaultFirebaseOptions.currentPlatform,
   );
   runApp(
-    // ProviderScope is the root of the Riverpod provider tree.
     const ProviderScope(child: _App()),
   );
 }

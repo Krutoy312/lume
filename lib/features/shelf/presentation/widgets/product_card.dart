@@ -1,17 +1,19 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../../core/theme/app_colors.dart';
 import '../../../../core/theme/app_text_styles.dart';
 import '../../data/models/product_model.dart';
+import '../controllers/shelf_controller.dart';
+import 'add_product_sheet.dart';
 import 'pulse_indicator.dart';
 
 /// A draggable product card for the Shelf screen.
 ///
-/// Shows product photo, name, category chip, schedule label, and an optional
-/// pulsing indicator when the product is scheduled for today.
-///
-/// Uses [LongPressDraggable] so normal scroll gestures are not interrupted.
-class ProductCard extends StatelessWidget {
+/// - Tap → opens [AddProductSheet] in edit mode.
+/// - Swipe left → deletes the product immediately (calls [ShelfNotifier.deleteProduct]).
+/// - Long-press → activates drag-and-drop between shelf sections.
+class ProductCard extends ConsumerWidget {
   const ProductCard({
     super.key,
     required this.product,
@@ -25,11 +27,19 @@ class ProductCard extends StatelessWidget {
   final String scheduleLabel;
 
   /// Whether to show the animated pulse indicator (top-right corner).
-  /// Should be true only for morning/evening products scheduled for today.
   final bool showPulse;
 
+  void _openEditSheet(BuildContext context) {
+    showModalBottomSheet<void>(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (_) => AddProductSheet(initialProduct: product),
+    );
+  }
+
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
     final w = MediaQuery.sizeOf(context).width;
     final cardWidth = w - w * 0.102; // 353/393 — card width within screen margins
 
@@ -39,28 +49,59 @@ class ProductCard extends StatelessWidget {
       showPulse: showPulse,
     );
 
-    return LongPressDraggable<ProductModel>(
-      data: product,
-      delay: const Duration(milliseconds: 350),
-      feedback: Material(
-        color: Colors.transparent,
-        child: SizedBox(
-          width: cardWidth,
-          child: Opacity(
-            opacity: 0.88,
-            child: _CardContent(
-              product: product,
-              scheduleLabel: scheduleLabel,
-              showPulse: false,
+    return GestureDetector(
+      onTap: () => _openEditSheet(context),
+      child: Dismissible(
+        key: Key(product.id),
+        direction: DismissDirection.endToStart,
+        onDismissed: (_) =>
+            ref.read(shelfProvider.notifier).deleteProduct(product.id),
+        background: _DeleteBackground(w: w),
+        child: LongPressDraggable<ProductModel>(
+          data: product,
+          delay: const Duration(milliseconds: 350),
+          feedback: Material(
+            color: Colors.transparent,
+            child: SizedBox(
+              width: cardWidth,
+              child: Opacity(
+                opacity: 0.88,
+                child: _CardContent(
+                  product: product,
+                  scheduleLabel: scheduleLabel,
+                  showPulse: false,
+                ),
+              ),
             ),
           ),
+          childWhenDragging: Opacity(
+            opacity: 0.35,
+            child: content,
+          ),
+          child: content,
         ),
       ),
-      childWhenDragging: Opacity(
-        opacity: 0.35,
-        child: content,
+    );
+  }
+}
+
+// ─── Delete background (shown on swipe-left) ──────────────────────────────────
+
+class _DeleteBackground extends StatelessWidget {
+  const _DeleteBackground({required this.w});
+
+  final double w;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      alignment: Alignment.centerRight,
+      padding: EdgeInsets.only(right: w * 0.051),
+      decoration: BoxDecoration(
+        color: const Color(0xFFFF3B30),
+        borderRadius: BorderRadius.circular(w * 0.038),
       ),
-      child: content,
+      child: const Icon(Icons.delete_outline, color: Colors.white, size: 24),
     );
   }
 }
@@ -222,15 +263,6 @@ class _PhotoPlaceholder extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return const ColoredBox(
-      color: AppColors.progressBarBack,
-      child: Center(
-        child: Icon(
-          Icons.image_outlined,
-          color: AppColors.primaryLighter,
-          size: 24,
-        ),
-      ),
-    );
+    return const ColoredBox(color: AppColors.progressBarBack);
   }
 }

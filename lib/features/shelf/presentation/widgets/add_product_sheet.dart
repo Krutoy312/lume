@@ -5,14 +5,21 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:image_picker/image_picker.dart';
 
 import '../../../../core/theme/app_colors.dart';
+import '../../data/models/product_model.dart';
 import '../controllers/shelf_controller.dart';
 
-/// Modal bottom sheet for adding a new product to the "toTry" list.
+/// Modal bottom sheet for adding a new product or editing an existing one.
 ///
-/// Saves automatically when dismissed (swipe or barrier tap) if the
-/// product name is not empty.
+/// Pass [initialProduct] to open in edit mode — all fields are pre-filled and
+/// "Save on Close" calls [ShelfNotifier.updateProduct] instead of
+/// [ShelfNotifier.addProductToTry].
+///
+/// Saves automatically when dismissed if the product name is not empty.
+/// The × button discards changes without saving.
 class AddProductSheet extends ConsumerStatefulWidget {
-  const AddProductSheet({super.key});
+  const AddProductSheet({super.key, this.initialProduct});
+
+  final ProductModel? initialProduct;
 
   @override
   ConsumerState<AddProductSheet> createState() => _AddProductSheetState();
@@ -26,7 +33,8 @@ class _AddProductSheetState extends ConsumerState<AddProductSheet> {
   /// selectedDays[0] = Monday (ISO weekday 1) … [6] = Sunday (ISO 7).
   final List<bool> _selectedDays = List.filled(7, false);
 
-  bool _saved = false; // guard against double-save
+  bool _saved = false;     // guard against double-save
+  bool _discarded = false; // set by the × button to skip auto-save
 
   static const _categories = [
     'Очищение',
@@ -38,10 +46,33 @@ class _AddProductSheetState extends ConsumerState<AddProductSheet> {
     'Актив',
   ];
 
-  // ── Save logic ──────────────────────────────────────────────────────────────
+  // ── Lifecycle ───────────────────────────────────────────────────────────────
+
+  @override
+  void initState() {
+    super.initState();
+    final p = widget.initialProduct;
+    if (p != null) {
+      _nameController.text = p.name;
+      _selectedCategory = _categories.contains(p.category) ? p.category : null;
+      final schedule = p.schedule;
+      if (schedule != null) {
+        for (int i = 0; i < 7; i++) {
+          _selectedDays[i] = schedule.contains(i + 1);
+        }
+      }
+    }
+  }
+
+  // ── Save / discard logic ────────────────────────────────────────────────────
+
+  void _discard() {
+    _discarded = true;
+    Navigator.of(context).pop();
+  }
 
   void _save() {
-    if (_saved) return;
+    if (_saved || _discarded) return;
     final name = _nameController.text.trim();
     if (name.isEmpty) return;
     _saved = true;
@@ -51,12 +82,27 @@ class _AddProductSheetState extends ConsumerState<AddProductSheet> {
         if (_selectedDays[i]) i + 1, // ISO weekday (1=Mon … 7=Sun)
     ];
 
-    ref.read(shelfProvider.notifier).addProductToTry(
-          name: name,
-          category: _selectedCategory ?? 'Средство',
-          photoLocalPath: _photo?.path,
-          schedule: schedule.isEmpty ? null : schedule,
-        );
+    final initial = widget.initialProduct;
+    if (initial != null) {
+      // Edit mode — update existing product.
+      final updated = initial.copyWith(
+        name: name,
+        category: _selectedCategory ?? initial.category,
+        schedule: schedule.isEmpty ? null : schedule,
+      );
+      ref.read(shelfProvider.notifier).updateProduct(
+            product: updated,
+            newPhotoLocalPath: _photo?.path,
+          );
+    } else {
+      // Add mode — create a new product.
+      ref.read(shelfProvider.notifier).addProductToTry(
+            name: name,
+            category: _selectedCategory ?? 'Средство',
+            photoLocalPath: _photo?.path,
+            schedule: schedule.isEmpty ? null : schedule,
+          );
+    }
   }
 
   // ── Photo picker ────────────────────────────────────────────────────────────
@@ -71,8 +117,6 @@ class _AddProductSheetState extends ConsumerState<AddProductSheet> {
     }
   }
 
-  // ── Lifecycle ───────────────────────────────────────────────────────────────
-
   @override
   void dispose() {
     _nameController.dispose();
@@ -85,6 +129,7 @@ class _AddProductSheetState extends ConsumerState<AddProductSheet> {
   Widget build(BuildContext context) {
     final w = MediaQuery.sizeOf(context).width;
     final bottomInset = MediaQuery.viewInsetsOf(context).bottom;
+    final systemBottom = MediaQuery.paddingOf(context).bottom;
 
     return PopScope(
       canPop: true,
@@ -99,11 +144,14 @@ class _AddProductSheetState extends ConsumerState<AddProductSheet> {
           ),
         ),
         child: SingleChildScrollView(
+          // ClampingScrollPhysics: at scroll-top the drag propagates to the
+          // sheet so the user can swipe the whole sheet down to dismiss.
+          physics: const ClampingScrollPhysics(),
           padding: EdgeInsets.only(
             left: w * 0.051,
             right: w * 0.051,
             top: w * 0.031,
-            bottom: w * 0.051 + bottomInset,
+            bottom: w * 0.051 + bottomInset + systemBottom,
           ),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
@@ -128,14 +176,25 @@ class _AddProductSheetState extends ConsumerState<AddProductSheet> {
                   Expanded(
                     child: Text('Добавьте средство', style: _titleStyle),
                   ),
-                  SizedBox(width: w * 0.031),
+                  SizedBox(width: w * 0.020),
                   _FillByPhotoButton(w: w),
+                  SizedBox(width: w * 0.020),
+                  GestureDetector(
+                    onTap: _discard,
+                    behavior: HitTestBehavior.opaque,
+                    child: Icon(
+                      Icons.close,
+                      size: w * 0.051,
+                      color: AppColors.primaryMedium,
+                    ),
+                  ),
                 ],
               ),
               SizedBox(height: w * 0.051),
 
               // ── Photo preview ───────────────────────────────────────────────
               if (_photo != null) ...[
+                // Newly picked local photo
                 ClipRRect(
                   borderRadius: BorderRadius.circular(w * 0.038),
                   child: Image.file(
@@ -146,16 +205,31 @@ class _AddProductSheetState extends ConsumerState<AddProductSheet> {
                   ),
                 ),
                 SizedBox(height: w * 0.031),
+              ] else if (widget.initialProduct?.photoUrl != null) ...[
+                // Existing network photo (edit mode, no new photo picked yet)
+                ClipRRect(
+                  borderRadius: BorderRadius.circular(w * 0.038),
+                  child: Image.network(
+                    widget.initialProduct!.photoUrl!,
+                    height: w * 0.46,
+                    width: double.infinity,
+                    fit: BoxFit.cover,
+                    errorBuilder: (_, __, ___) => const SizedBox.shrink(),
+                  ),
+                ),
+                SizedBox(height: w * 0.031),
               ],
 
               // ── Name field ──────────────────────────────────────────────────
-              Text('Название', style: _fieldLabelStyle),
-              SizedBox(height: w * 0.020),
-              _NameField(controller: _nameController, w: w),
+              _InputField(
+                controller: _nameController,
+                label: 'Название',
+                hint: 'Введите название...',
+              ),
               SizedBox(height: w * 0.041),
 
               // ── Category chips ──────────────────────────────────────────────
-              Text('Категория', style: _fieldLabelStyle),
+              Text('Категория', style: _scheduleHeaderStyle),
               SizedBox(height: w * 0.020),
               _CategoryChips(
                 categories: _categories,
@@ -190,7 +264,9 @@ class _AddProductSheetState extends ConsumerState<AddProductSheet> {
                     ),
                     SizedBox(width: w * 0.015),
                     Text(
-                      _photo != null ? 'Изменить фото продукта' : 'Добавить фото продукта',
+                      (_photo != null || widget.initialProduct?.photoUrl != null)
+                          ? 'Изменить фото продукта'
+                          : 'Добавить фото продукта',
                       style: TextStyle(
                         fontFamily: 'SF Pro',
                         fontSize: 12,
@@ -219,14 +295,6 @@ const TextStyle _titleStyle = TextStyle(
   color: AppColors.primaryDark,
   letterSpacing: -0.5,
   height: 1.25,
-);
-
-const TextStyle _fieldLabelStyle = TextStyle(
-  fontFamily: 'SF Pro',
-  fontSize: 16,
-  fontWeight: FontWeight.w300,
-  color: AppColors.primaryDark,
-  height: 1.5,
 );
 
 const TextStyle _scheduleHeaderStyle = TextStyle(
@@ -277,16 +345,22 @@ class _FillByPhotoButton extends StatelessWidget {
   }
 }
 
-// ─── Name input field ─────────────────────────────────────────────────────────
+// ─── Input field ──────────────────────────────────────────────────────────────
 
-class _NameField extends StatelessWidget {
-  const _NameField({required this.controller, required this.w});
+class _InputField extends StatelessWidget {
+  const _InputField({
+    required this.controller,
+    required this.label,
+    required this.hint,
+  });
 
   final TextEditingController controller;
-  final double w;
+  final String label;
+  final String hint;
 
   @override
   Widget build(BuildContext context) {
+    final w = MediaQuery.sizeOf(context).width;
     return TextField(
       controller: controller,
       style: const TextStyle(
@@ -297,35 +371,30 @@ class _NameField extends StatelessWidget {
         height: 1.5,
       ),
       decoration: InputDecoration(
-        hintText: 'Введите название...',
-        hintStyle: const TextStyle(
+        labelText: label,
+        hintText: hint,
+        labelStyle: const TextStyle(
           fontFamily: 'SF Pro',
-          fontSize: 12,
-          fontWeight: FontWeight.w500,
+          fontSize: 13,
           color: AppColors.primaryMedium,
         ),
-        filled: false,
+        hintStyle: const TextStyle(
+          fontFamily: 'SF Pro',
+          fontSize: 13,
+          color: AppColors.primaryLighter,
+        ),
+        filled: true,
+        fillColor: AppColors.scaffoldBackground,
         contentPadding: EdgeInsets.symmetric(
-          horizontal: w * 0.038,
-          vertical: w * 0.020,
+          horizontal: w * 0.041,
+          vertical: w * 0.031,
         ),
-        constraints: BoxConstraints(minHeight: w * 0.076),
         border: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(15),
-          borderSide: const BorderSide(
-            color: AppColors.scaffoldBackground,
-            width: 1,
-          ),
-        ),
-        enabledBorder: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(15),
-          borderSide: const BorderSide(
-            color: AppColors.scaffoldBackground,
-            width: 1,
-          ),
+          borderRadius: BorderRadius.circular(w * 0.031),
+          borderSide: BorderSide.none,
         ),
         focusedBorder: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(15),
+          borderRadius: BorderRadius.circular(w * 0.031),
           borderSide: const BorderSide(color: AppColors.golden, width: 1),
         ),
       ),

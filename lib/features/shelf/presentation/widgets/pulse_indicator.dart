@@ -36,10 +36,9 @@ class _PulseIndicatorState extends State<PulseIndicator>
   @override
   Widget build(BuildContext context) {
     final w = MediaQuery.sizeOf(context).width;
-    // Outer container is larger than the visible 12px Figma dot so the wave
-    // has room to expand without clipping.
-    final outerSize = w * 0.046; // ~18 px at 393 px reference
-    final dotSize = w * 0.015;   // ~6 px static center dot
+    // Outer container holds the pulse wave; dotSize is the static center circle.
+    final outerSize = w * 0.092; // ~36 px (2× original 18 px)
+    final dotSize = w * 0.030;   // ~12 px (2× original 6 px)
 
     return RepaintBoundary(
       child: SizedBox.square(

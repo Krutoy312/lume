@@ -159,6 +159,59 @@ class ShelfNotifier extends StateNotifier<ShelfState> {
     _scheduleSave(updated);
   }
 
+  // ── Delete ────────────────────────────────────────────────────────────────
+
+  void deleteProduct(String id) {
+    final current = state.data;
+    if (current == null) return;
+    final updated = _removeFromAll(current, id);
+    state = state.copyWith(shelf: AsyncData(updated));
+    _scheduleSave(updated);
+  }
+
+  // ── Update ────────────────────────────────────────────────────────────────
+
+  /// Updates an existing product in-place across all shelf sections.
+  ///
+  /// If [newPhotoLocalPath] is provided, uploads the image to Firebase Storage
+  /// and replaces the product's [photoUrl]. The state update is optimistic;
+  /// photo upload happens in the background.
+  Future<void> updateProduct({
+    required ProductModel product,
+    String? newPhotoLocalPath,
+  }) async {
+    final current = state.data;
+    if (current == null) return;
+
+    final uid = _auth.currentUser?.uid;
+    if (uid == null) return;
+
+    // Optimistic update with current data.
+    var updated = _replaceInAll(current, product);
+    state = state.copyWith(shelf: AsyncData(updated));
+    _scheduleSave(updated);
+
+    // Upload new photo in background; patch state when done.
+    if (newPhotoLocalPath != null) {
+      try {
+        final ref = FirebaseStorage.instance
+            .ref('users/$uid/products/${product.id}.jpg');
+        await ref.putFile(File(newPhotoLocalPath));
+        final url = await ref.getDownloadURL();
+
+        final withPhoto = product.copyWith(photoUrl: url);
+        final s = state.data;
+        if (s != null) {
+          final patched = _replaceInAll(s, withPhoto);
+          state = state.copyWith(shelf: AsyncData(patched));
+          _scheduleSave(patched);
+        }
+      } catch (_) {
+        // Ignore — product is saved without the new photo.
+      }
+    }
+  }
+
   // ── Internal ──────────────────────────────────────────────────────────────
 
   ShelfModel _removeFromAll(ShelfModel shelf, String productId) {
@@ -169,6 +222,18 @@ class ShelfNotifier extends StateNotifier<ShelfState> {
       ),
       favorites: shelf.favorites.where((p) => p.id != productId).toList(),
       toTry: shelf.toTry.where((p) => p.id != productId).toList(),
+    );
+  }
+
+  ShelfModel _replaceInAll(ShelfModel shelf, ProductModel product) {
+    ProductModel replace(ProductModel p) => p.id == product.id ? product : p;
+    return ShelfModel(
+      my: ShelfRoutineModel(
+        morning: shelf.my.morning.map(replace).toList(),
+        evening: shelf.my.evening.map(replace).toList(),
+      ),
+      favorites: shelf.favorites.map(replace).toList(),
+      toTry: shelf.toTry.map(replace).toList(),
     );
   }
 

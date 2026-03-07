@@ -4,5 +4,14 @@ service firebase.storage {
     match /users/{userId}/{allPaths=**} {
       allow read, write: if request.auth != null && request.auth.uid == userId;
     }
+
+    // Temporary images uploaded for OCR processing.
+    // Any authenticated user can write; download tokens make the URL
+    // publicly readable by the OCR API without exposing the whole bucket.
+    // Files are deleted immediately after a successful OCR response.
+    match /ocr_temp/{allPaths=**} {
+  allow read: if true; // Это самое важное для alem.ai!
+  allow write: if request.auth != null;
+}
   }
 }

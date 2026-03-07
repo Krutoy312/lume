@@ -41,6 +41,9 @@ dependencies:
   firebase_storage: ^13.0.6
   cloud_functions: ^6.0.6
 
+  # HTTP client
+  http: ^1.2.2
+
   # Image picking
   image_picker: ^1.1.2
 

@@ -11,11 +11,11 @@ enum ChatMode { none, skinPhoto, productPhoto, routinePick }
 
 extension ChatModeLabel on ChatMode {
   String get label => switch (this) {
-        ChatMode.none => '',
-        ChatMode.skinPhoto => 'Анализ кожи по фото',
-        ChatMode.productPhoto => 'Анализ средства по фото',
-        ChatMode.routinePick => 'Подобрать уход',
-      };
+    ChatMode.none => '',
+    ChatMode.skinPhoto => 'Анализ кожи по фото',
+    ChatMode.productPhoto => 'Анализ средства по фото',
+    ChatMode.routinePick => 'Подобрать уход',
+  };
 
   bool get requiresPhoto =>
       this == ChatMode.skinPhoto || this == ChatMode.productPhoto;
@@ -47,7 +47,7 @@ class ChatState {
   bool canSend(String inputText) {
     if (isLoading) return false;
     return switch (selectedMode) {
-      ChatMode.none => inputText.trim().isNotEmpty,
+      ChatMode.none => inputText.trim().isNotEmpty || attachedPhoto != null,
       ChatMode.skinPhoto => attachedPhoto != null,
       ChatMode.productPhoto => attachedPhoto != null,
       ChatMode.routinePick => true,
@@ -63,15 +63,14 @@ class ChatState {
     bool clearPhoto = false,
     String? errorMessage,
     bool clearError = false,
-  }) =>
-      ChatState(
-        messages: messages ?? this.messages,
-        selectedMode: selectedMode ?? this.selectedMode,
-        menuOpen: menuOpen ?? this.menuOpen,
-        isLoading: isLoading ?? this.isLoading,
-        attachedPhoto: clearPhoto ? null : (attachedPhoto ?? this.attachedPhoto),
-        errorMessage: clearError ? null : (errorMessage ?? this.errorMessage),
-      );
+  }) => ChatState(
+    messages: messages ?? this.messages,
+    selectedMode: selectedMode ?? this.selectedMode,
+    menuOpen: menuOpen ?? this.menuOpen,
+    isLoading: isLoading ?? this.isLoading,
+    attachedPhoto: clearPhoto ? null : (attachedPhoto ?? this.attachedPhoto),
+    errorMessage: clearError ? null : (errorMessage ?? this.errorMessage),
+  );
 }
 
 // ─── Notifier ─────────────────────────────────────────────────────────────────
@@ -147,13 +146,16 @@ class ChatNotifier extends StateNotifier<ChatState> {
       // Resolve context through the cache:
       //   Step 1+2 — notes hit  → returns immediately, zero Firestore reads.
       //   Step 3+4 — notes miss → fetches from Firestore, then stores result.
-      final ctx = await _ref.read(userContextCacheProvider.notifier).getContext();
+      final ctx = await _ref
+          .read(userContextCacheProvider.notifier)
+          .getContext();
       final String reply;
 
       switch (state.selectedMode) {
         case ChatMode.skinPhoto:
-          final url =
-              await AiChatService.uploadTempImage(state.attachedPhoto!.path);
+          final url = await AiChatService.uploadTempImage(
+            state.attachedPhoto!.path,
+          );
           reply = await AiChatService.sendSkinPhotoAnalysis(
             imageUrl: url,
             userText: trimmedText,
@@ -161,8 +163,9 @@ class ChatNotifier extends StateNotifier<ChatState> {
           );
 
         case ChatMode.productPhoto:
-          final url =
-              await AiChatService.uploadTempImage(state.attachedPhoto!.path);
+          final url = await AiChatService.uploadTempImage(
+            state.attachedPhoto!.path,
+          );
           reply = await AiChatService.sendProductPhotoAnalysis(
             imageUrl: url,
             userText: trimmedText,
@@ -176,6 +179,13 @@ class ChatNotifier extends StateNotifier<ChatState> {
           );
 
         case ChatMode.none:
+          // Upload photo if one is attached (qwen3 supports multimodal).
+          String? imageUrl;
+          if (state.attachedPhoto != null) {
+            imageUrl = await AiChatService.uploadTempImage(
+              state.attachedPhoto!.path,
+            );
+          }
           // Build conversation history from the existing messages.
           final history = state.messages.map((m) {
             return {
@@ -186,6 +196,7 @@ class ChatNotifier extends StateNotifier<ChatState> {
           reply = await AiChatService.sendGeneralChat(
             history: history,
             ctx: ctx,
+            imageUrl: imageUrl,
           );
       }
 
@@ -211,11 +222,15 @@ class ChatNotifier extends StateNotifier<ChatState> {
 
   String _userDisplayText(String text) {
     final mode = state.selectedMode;
-    if (mode == ChatMode.skinPhoto && text.isEmpty) return 'Анализ кожи по фото';
+    if (mode == ChatMode.skinPhoto && text.isEmpty)
+      return 'Анализ кожи по фото';
     if (mode == ChatMode.productPhoto && text.isEmpty) {
       return 'Анализ средства по фото';
     }
     if (mode == ChatMode.routinePick && text.isEmpty) return 'Подобрать уход';
+    if (mode == ChatMode.none && text.isEmpty && state.attachedPhoto != null) {
+      return 'Фото';
+    }
     return text.isNotEmpty ? text : mode.label;
   }
 }

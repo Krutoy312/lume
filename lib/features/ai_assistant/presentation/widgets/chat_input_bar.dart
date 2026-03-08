@@ -10,10 +10,7 @@ import '../controllers/chat_controller.dart';
 
 /// The bottom input area: optional menu panel + optional mode chip + input row.
 class ChatInputBar extends ConsumerStatefulWidget {
-  const ChatInputBar({
-    super.key,
-    required this.onSend,
-  });
+  const ChatInputBar({super.key, required this.onSend});
 
   final void Function(String text) onSend;
 
@@ -37,8 +34,15 @@ class _ChatInputBarState extends ConsumerState<ChatInputBar> {
   }
 
   Future<void> _pickPhoto() async {
+    final source = await showModalBottomSheet<ImageSource>(
+      context: context,
+      backgroundColor: Colors.transparent,
+      builder: (_) => _PhotoSourceSheet(w: MediaQuery.sizeOf(context).width),
+    );
+    if (source == null || !mounted) return;
+
     final picked = await ImagePicker().pickImage(
-      source: ImageSource.gallery,
+      source: source,
       imageQuality: 85,
     );
     if (picked != null && mounted) {
@@ -247,10 +251,8 @@ class _MenuItem extends StatelessWidget {
           style: TextStyle(
             fontFamily: 'SF Pro',
             fontSize: w * 0.031,
-            fontWeight:
-                _isSelected ? FontWeight.w600 : FontWeight.w300,
-            color:
-                _isSelected ? AppColors.surface : AppColors.primaryDark,
+            fontWeight: _isSelected ? FontWeight.w600 : FontWeight.w300,
+            color: _isSelected ? AppColors.surface : AppColors.primaryDark,
           ),
         ),
       ),
@@ -279,43 +281,41 @@ class _ModeChip extends StatelessWidget {
         left: w * 0.041,
         right: w * 0.041,
       ),
-      child: Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Container(
-            height: w * 0.051,
-            padding: EdgeInsets.symmetric(horizontal: w * 0.031),
-            decoration: BoxDecoration(
-              border: Border.all(color: const Color(0xFFF7F7F7), width: 1),
-              borderRadius: BorderRadius.circular(25),
-            ),
-            alignment: Alignment.center,
-            child: Row(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Text(
-                  label,
-                  style: TextStyle(
-                    fontFamily: 'SF Pro',
-                    fontSize: w * 0.020,
-                    fontWeight: FontWeight.w400,
-                    color: AppColors.primaryDark,
-                    height: 1.0,
-                  ),
-                ),
-                SizedBox(width: w * 0.015),
-                GestureDetector(
-                  onTap: onDismiss,
-                  child: Icon(
-                    Icons.close,
-                    size: w * 0.025,
-                    color: AppColors.primaryMedium,
-                  ),
-                ),
-              ],
-            ),
+      child: Align(
+        alignment: Alignment.centerLeft,
+        child: Container(
+          height: w * 0.066,
+          padding: EdgeInsets.symmetric(horizontal: w * 0.038),
+          decoration: BoxDecoration(
+            color: AppColors.progressBarBack,
+            borderRadius: BorderRadius.circular(25),
           ),
-        ],
+          alignment: Alignment.center,
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Text(
+                label,
+                style: TextStyle(
+                  fontFamily: 'SF Pro',
+                  fontSize: w * 0.031,
+                  fontWeight: FontWeight.w500,
+                  color: AppColors.primaryDark,
+                  height: 1.0,
+                ),
+              ),
+              SizedBox(width: w * 0.020),
+              GestureDetector(
+                onTap: onDismiss,
+                child: Icon(
+                  Icons.close,
+                  size: w * 0.033,
+                  color: AppColors.primaryMedium,
+                ),
+              ),
+            ],
+          ),
+        ),
       ),
     );
   }
@@ -346,14 +346,15 @@ class _InputRow extends StatelessWidget {
       listenable: controller,
       builder: (_, __) {
         final canSend = state.canSend(controller.text);
-        final showAttach = state.selectedMode.showAttach ||
+        final showAttach = true;
+        final attachEnabled =
+            state.selectedMode.showAttach ||
             state.selectedMode == ChatMode.none;
-        final attachEnabled = state.selectedMode.showAttach;
 
         return Padding(
           padding: EdgeInsets.symmetric(
             horizontal: w * 0.038,
-            vertical: w * 0.025,
+            vertical: w * 0.036,
           ),
           child: Row(
             children: [
@@ -391,6 +392,8 @@ class _InputRow extends StatelessWidget {
                       color: const Color(0xFFA7947F),
                     ),
                     border: InputBorder.none,
+                    enabledBorder: InputBorder.none,
+                    focusedBorder: InputBorder.none,
                     isDense: true,
                     contentPadding: EdgeInsets.zero,
                   ),
@@ -494,6 +497,117 @@ class _PhotoStrip extends StatelessWidget {
             ],
           ),
         ],
+      ),
+    );
+  }
+}
+
+// ─── Photo source picker sheet ────────────────────────────────────────────────
+
+class _PhotoSourceSheet extends StatelessWidget {
+  const _PhotoSourceSheet({required this.w});
+
+  final double w;
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: EdgeInsets.fromLTRB(
+        w * 0.051,
+        0,
+        w * 0.051,
+        w * 0.051 + MediaQuery.paddingOf(context).bottom,
+      ),
+      child: Container(
+        decoration: BoxDecoration(
+          color: AppColors.surface,
+          borderRadius: BorderRadius.circular(20),
+          boxShadow: const [
+            BoxShadow(
+              color: Color(0x1F8B7355),
+              blurRadius: 32,
+              offset: Offset(0, 8),
+            ),
+          ],
+        ),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            _SourceTile(
+              icon: Icons.photo_library_outlined,
+              label: 'Выбрать из галереи',
+              onTap: () => Navigator.pop(context, ImageSource.gallery),
+              w: w,
+              topRadius: true,
+            ),
+            Divider(
+              height: 1,
+              thickness: 1,
+              color: AppColors.scaffoldBackground,
+              indent: w * 0.051,
+            ),
+            _SourceTile(
+              icon: Icons.camera_alt_outlined,
+              label: 'Сделать фото',
+              onTap: () => Navigator.pop(context, ImageSource.camera),
+              w: w,
+              bottomRadius: true,
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _SourceTile extends StatelessWidget {
+  const _SourceTile({
+    required this.icon,
+    required this.label,
+    required this.onTap,
+    required this.w,
+    this.topRadius = false,
+    this.bottomRadius = false,
+  });
+
+  final IconData icon;
+  final String label;
+  final VoidCallback onTap;
+  final double w;
+  final bool topRadius;
+  final bool bottomRadius;
+
+  @override
+  Widget build(BuildContext context) {
+    final radius = Radius.circular(20);
+    return InkWell(
+      onTap: onTap,
+      borderRadius: BorderRadius.only(
+        topLeft: topRadius ? radius : Radius.zero,
+        topRight: topRadius ? radius : Radius.zero,
+        bottomLeft: bottomRadius ? radius : Radius.zero,
+        bottomRight: bottomRadius ? radius : Radius.zero,
+      ),
+      child: Padding(
+        padding: EdgeInsets.symmetric(
+          horizontal: w * 0.051,
+          vertical: w * 0.043,
+        ),
+        child: Row(
+          children: [
+            Icon(icon, size: w * 0.056, color: AppColors.golden),
+            SizedBox(width: w * 0.038),
+            Text(
+              label,
+              style: TextStyle(
+                fontFamily: 'SF Pro',
+                fontSize: w * 0.036,
+                fontWeight: FontWeight.w400,
+                color: AppColors.primaryDark,
+              ),
+            ),
+          ],
+        ),
       ),
     );
   }

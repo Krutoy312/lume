@@ -52,6 +52,13 @@ class _AiChatScreenState extends ConsumerState<AiChatScreen> {
       }
     });
 
+    // The nav-bar clearance comes from MainShell overriding padding.bottom.
+    // The keyboard clearance comes from viewInsets.bottom.
+    // We take whichever is larger so the input bar is always fully visible.
+    final navBarPad = MediaQuery.paddingOf(context).bottom;
+    final keyboardPad = MediaQuery.viewInsetsOf(context).bottom;
+    final bottomInset = keyboardPad > navBarPad ? keyboardPad : navBarPad;
+
     return GestureDetector(
       // Dismiss menu when tapping outside.
       onTap: () {
@@ -63,7 +70,9 @@ class _AiChatScreenState extends ConsumerState<AiChatScreen> {
       behavior: HitTestBehavior.translucent,
       child: Scaffold(
         backgroundColor: AppColors.scaffoldBackground,
-        resizeToAvoidBottomInset: true,
+        // Must be false: positioning is handled manually via bottomInset so
+        // the body never resizes and the input bar never jumps.
+        resizeToAvoidBottomInset: false,
         body: Column(
           children: [
             // ── App bar ───────────────────────────────────────────────────
@@ -89,8 +98,10 @@ class _AiChatScreenState extends ConsumerState<AiChatScreen> {
               ),
 
             // ── Input bar ─────────────────────────────────────────────────
-            SafeArea(
-              top: false,
+            // bottomInset pushes the bar above the keyboard (when open) or
+            // above the floating nav bar (when closed), whichever is taller.
+            Padding(
+              padding: EdgeInsets.only(bottom: bottomInset),
               child: ChatInputBar(onSend: _handleSend),
             ),
           ],

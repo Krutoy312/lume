@@ -20,8 +20,10 @@ import 'tracked_metrics_provider.dart';
 /// Tap anywhere to dismiss.
 class _FullscreenPhotoView extends StatelessWidget {
   const _FullscreenPhotoView({this.localPath, this.networkUrl})
-      : assert(localPath != null || networkUrl != null,
-            'Provide localPath or networkUrl');
+    : assert(
+        localPath != null || networkUrl != null,
+        'Provide localPath or networkUrl',
+      );
 
   final String? localPath;
   final String? networkUrl;
@@ -48,10 +50,7 @@ class _FullscreenPhotoView extends StatelessWidget {
       child: Scaffold(
         backgroundColor: Colors.black87,
         body: Center(
-          child: Hero(
-            tag: 'assessment_photo_hero',
-            child: imageWidget,
-          ),
+          child: Hero(tag: 'assessment_photo_hero', child: imageWidget),
         ),
       ),
     );
@@ -144,8 +143,7 @@ class _DailyAssessmentSectionState
     }
   }
 
-  void _removePhoto() =>
-      ref.read(assessmentProvider.notifier).removePhoto();
+  void _removePhoto() => ref.read(assessmentProvider.notifier).removePhoto();
 
   void _openFullscreen() {
     final state = ref.read(assessmentProvider);
@@ -197,32 +195,34 @@ class _DailyAssessmentSectionState
     // Capture tracked keys at the moment of submission.
     final trackedKeys = ref.read(trackedMetricsProvider);
 
-    await ref.read(assessmentProvider.notifier).submit(
-      timezone: _timezone,
-      trackedKeys: trackedKeys,
-      onSuccess: (_) {
-        if (!mounted) return;
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('Оценка сохранена!'),
-            backgroundColor: AppColors.golden,
-            behavior: SnackBarBehavior.floating,
-          ),
+    await ref
+        .read(assessmentProvider.notifier)
+        .submit(
+          timezone: _timezone,
+          trackedKeys: trackedKeys,
+          onSuccess: (_) {
+            if (!mounted) return;
+            ScaffoldMessenger.of(context).showSnackBar(
+              const SnackBar(
+                content: Text('Оценка сохранена!'),
+                backgroundColor: AppColors.golden,
+                behavior: SnackBarBehavior.floating,
+              ),
+            );
+            // Re-fetch so the form shows the saved state and collapses.
+            ref.read(assessmentProvider.notifier).load();
+          },
+          onError: (err) {
+            if (!mounted) return;
+            ScaffoldMessenger.of(context).showSnackBar(
+              SnackBar(
+                content: Text('Ошибка: $err'),
+                backgroundColor: AppColors.alertRed,
+                behavior: SnackBarBehavior.floating,
+              ),
+            );
+          },
         );
-        // Re-fetch so the form shows the saved state and collapses.
-        ref.read(assessmentProvider.notifier).load();
-      },
-      onError: (err) {
-        if (!mounted) return;
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('Ошибка: $err'),
-            backgroundColor: AppColors.alertRed,
-            behavior: SnackBarBehavior.floating,
-          ),
-        );
-      },
-    );
   }
 
   // ── Build ──────────────────────────────────────────────────────────────────
@@ -241,8 +241,9 @@ class _DailyAssessmentSectionState
       if (wasLoading && isDone) {
         if (_noteController.text != next.note) {
           _noteController.text = next.note;
-          _noteController.selection =
-              TextSelection.collapsed(offset: next.note.length);
+          _noteController.selection = TextSelection.collapsed(
+            offset: next.note.length,
+          );
         }
         if (next.existsToday && _isExpanded) {
           setState(() => _isExpanded = false);
@@ -417,8 +418,9 @@ class _DailyAssessmentSectionState
     // Filter kAllMetrics to only the user's current tracked subset,
     // preserving the canonical order from kAllMetrics.
     final trackedSet = Set<String>.from(trackedKeys);
-    final activeMetrics =
-        kAllMetrics.where((m) => trackedSet.contains(m.key)).toList();
+    final activeMetrics = kAllMetrics
+        .where((m) => trackedSet.contains(m.key))
+        .toList();
 
     final hasLocalPhoto = state.photo != null;
     final hasNetworkPhoto = state.photoUrl != null && !hasLocalPhoto;
@@ -462,16 +464,16 @@ class _DailyAssessmentSectionState
                             fit: BoxFit.cover,
                             loadingBuilder: (_, child, progress) =>
                                 progress == null
-                                    ? child
-                                    : SizedBox(
-                                        height: w * 0.350,
-                                        child: const Center(
-                                          child: CircularProgressIndicator(
-                                            color: AppColors.golden,
-                                            strokeWidth: 2,
-                                          ),
-                                        ),
+                                ? child
+                                : SizedBox(
+                                    height: w * 0.350,
+                                    child: const Center(
+                                      child: CircularProgressIndicator(
+                                        color: AppColors.golden,
+                                        strokeWidth: 2,
                                       ),
+                                    ),
+                                  ),
                           ),
                   ),
                 ),
@@ -531,9 +533,10 @@ class _DailyAssessmentSectionState
                       letterSpacing: -0.5,
                     ),
                     border: InputBorder.none,
+                    enabledBorder: InputBorder.none,
+                    focusedBorder: InputBorder.none,
                     isDense: false,
-                    contentPadding:
-                        EdgeInsets.symmetric(vertical: w * 0.040),
+                    contentPadding: EdgeInsets.symmetric(vertical: w * 0.040),
                   ),
                   onChanged: notifier.setNote,
                 ),
@@ -548,9 +551,7 @@ class _DailyAssessmentSectionState
                     width: w * 0.051,
                     height: w * 0.051,
                     colorFilter: ColorFilter.mode(
-                      hasAnyPhoto
-                          ? AppColors.golden
-                          : AppColors.primaryLight,
+                      hasAnyPhoto ? AppColors.golden : AppColors.primaryLight,
                       BlendMode.srcIn,
                     ),
                   ),
@@ -594,10 +595,7 @@ class _ChangeMetricsButton extends StatelessWidget {
       child: Container(
         height: w * 0.120,
         decoration: BoxDecoration(
-          border: Border.all(
-            color: AppColors.scaffoldBackground,
-            width: 1,
-          ),
+          border: Border.all(color: AppColors.scaffoldBackground, width: 1),
           borderRadius: BorderRadius.circular(w * 0.038),
         ),
         child: const Center(

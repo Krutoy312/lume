@@ -122,6 +122,7 @@ class CalendarNotifier extends StateNotifier<CalendarState> {
           .collection('users')
           .doc(uid)
           .collection('daily_assessments')
+          .where('isAssessed', isEqualTo: true)
           .get();
       final keys = snap.docs.map((d) => d.id).toSet();
       state = state.copyWith(

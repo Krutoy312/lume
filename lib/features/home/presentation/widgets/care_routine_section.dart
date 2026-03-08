@@ -6,6 +6,7 @@ import '../../../../core/theme/app_colors.dart';
 import '../../../../core/theme/app_text_styles.dart';
 import '../../../shelf/data/models/daily_routine_model.dart';
 import '../../../shelf/presentation/controllers/routine_controller.dart';
+import 'care_routine_sheet.dart';
 
 class CareRoutineSection extends ConsumerStatefulWidget {
   const CareRoutineSection({super.key});
@@ -83,6 +84,7 @@ class _RoutineRow extends StatelessWidget {
               assetPath: 'assets/icons/ic_sun.svg',
               label: 'Утренний уход',
               slot: morning,
+              isEvening: false,
               w: w,
             ),
           ),
@@ -92,6 +94,7 @@ class _RoutineRow extends StatelessWidget {
               assetPath: 'assets/icons/ic_moon.svg',
               label: 'Вечерний уход',
               slot: evening,
+              isEvening: true,
               w: w,
             ),
           ),
@@ -108,12 +111,14 @@ class _RoutineCard extends StatelessWidget {
     required this.assetPath,
     required this.label,
     required this.slot,
+    required this.isEvening,
     required this.w,
   });
 
   final String assetPath;
   final String label;
   final RoutineSlotModel? slot;
+  final bool isEvening;
   final double w;
 
   @override
@@ -123,7 +128,7 @@ class _RoutineCard extends StatelessWidget {
     final isComplete = slot?.isComplete ?? false;
 
     return GestureDetector(
-      onTap: () {},
+      onTap: () => showRoutineSheet(context, isEvening: isEvening),
       child: Container(
         // No fixed height — card sizes to content.
         // minHeight preserves the original visual feel on large screens.

@@ -76,8 +76,12 @@ class RoutineNotifier extends StateNotifier<RoutineState> {
           : routine.eveningRoutine,
     );
 
+    // Optimistic update — UI reflects change immediately.
     state = AsyncData(updated);
-    await _save(updated);
+    await Future.wait([
+      _save(updated),
+      _updateDailyAssessment(updated),
+    ]);
   }
 
   /// Toggles the skipped state for [productId] in the morning or evening slot.
@@ -181,15 +185,50 @@ class RoutineNotifier extends StateNotifier<RoutineState> {
           );
   }
 
+  /// Persists the full routine to the user document using merge so other
+  /// fields (shelf, metrics, etc.) are never overwritten.
   Future<void> _save(DailyRoutineModel routine) async {
     try {
-      await _db.collection('users').doc(_uid).update({
-        'routine': routine.toJson(),
-        'updatedAt': FieldValue.serverTimestamp(),
-      });
+      await _db.collection('users').doc(_uid).set(
+        {
+          'routine': routine.toJson(),
+          'updatedAt': FieldValue.serverTimestamp(),
+        },
+        SetOptions(merge: true),
+      );
     } catch (_) {
       // Silently ignore — local state remains correct; Firestore will resync
       // on the next loadAndSync() call.
+    }
+  }
+
+  /// Records the product IDs used today into the daily_assessments sub-collection.
+  ///
+  /// Uses [mergeFields] so only `usedProductIds` and `updatedAt` are touched —
+  /// the `isAssessed` flag written by the metrics assessment flow is never
+  /// overwritten by routine tracking.
+  Future<void> _updateDailyAssessment(DailyRoutineModel routine) async {
+    try {
+      final uid = _uid;
+      final allUsed = [
+        ...routine.morningRoutine.used,
+        ...routine.eveningRoutine.used,
+      ];
+      await _db
+          .collection('users')
+          .doc(uid)
+          .collection('daily_assessments')
+          .doc(routine.date)
+          .set(
+            {
+              'usedProductIds': allUsed,
+              'updatedAt': FieldValue.serverTimestamp(),
+            },
+            SetOptions(mergeFields: ['usedProductIds', 'updatedAt']),
+          );
+    } catch (_) {
+      // Best-effort — routine state is already saved; the assessment record
+      // will be backfilled on the next successful write.
     }
   }
 }

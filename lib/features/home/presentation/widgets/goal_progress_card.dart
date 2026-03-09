@@ -102,7 +102,7 @@ class GoalProgressCard extends StatelessWidget {
                 crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
                   Transform.rotate(
-                    angle: 15.87 * pi / 180,
+                    angle: 0,
                     child: Image.asset(
                       'assets/images/img_light_bulb.png',
                       width: w * 0.17,

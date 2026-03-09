@@ -6,8 +6,8 @@ import '../../../../../core/theme/app_colors.dart';
 
 const _todayGradStart = Color(0xFF6F8F5A);
 const _todayGradEnd = Color(0xFFCFE8BE);
-const _dataRingStart = Color(0xFF6F8F5A);
-const _dataRingEnd = Color(0xFFFFFFFF);
+const _dataRingStart = Color(0xFFC1CFB8);
+const _dataRingEnd = Color(0xFFD9E1D3);
 const _selectedBg = Color(0xFFF5EDE4);
 
 // ─── Tile ─────────────────────────────────────────────────────────────────────
@@ -73,8 +73,7 @@ class CalendarTile extends StatelessWidget {
               style: TextStyle(
                 fontFamily: 'SF Pro',
                 fontSize: w * 0.036,
-                fontWeight:
-                    isSelected ? FontWeight.w600 : FontWeight.w400,
+                fontWeight: isSelected ? FontWeight.w600 : FontWeight.w400,
                 color: textColor,
                 height: 1.0,
               ),

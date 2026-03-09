@@ -73,9 +73,9 @@ class ShelfNotifier extends StateNotifier<ShelfState> {
     var updated = _removeFromAll(current, product.id);
 
     updated = switch (targetSection) {
-      kShelfSectionAdded => updated.copyWith(
-          toTry: [...updated.toTry, product],
-        ),
+      kShelfSectionAdded => updated.toTry.any((p) => p.name == product.name)
+          ? updated // already present — skip to avoid duplicates
+          : updated.copyWith(toTry: [...updated.toTry, product]),
       kShelfSectionMorning => updated.copyWith(
           my: updated.my.copyWith(
             morning: [...updated.my.morning, product],
@@ -136,27 +136,63 @@ class ShelfNotifier extends StateNotifier<ShelfState> {
     var updated = current.copyWith(toTry: [...current.toTry, product]);
     state = state.copyWith(shelf: AsyncData(updated));
 
-    // Upload photo in background; update state + Firestore when done.
-    if (photoLocalPath != null) {
-      try {
-        final ref = FirebaseStorage.instance
-            .ref('users/$uid/products/$id.jpg');
-        final bytes = await XFile(photoLocalPath).readAsBytes();
-        await ref.putData(bytes);
-        final url = await ref.getDownloadURL();
-
-        product = product.copyWith(photoUrl: url);
-        final s = state.data;
-        if (s != null) {
-          final newToTry = s.toTry.map((p) => p.id == id ? product : p).toList();
-          updated = s.copyWith(toTry: newToTry);
-          state = state.copyWith(shelf: AsyncData(updated));
-        }
-      } catch (_) {
-        // Ignore upload failure — product is saved without photo.
-      }
+    // If no photo, debounce-save now and return.
+    if (photoLocalPath == null) {
+      _scheduleSave(updated);
+      return;
     }
 
+    // Upload photo; save immediately once URL is ready so it is never lost.
+    try {
+      final ref = FirebaseStorage.instance
+          .ref('users/$uid/products/$id.jpg');
+      final bytes = await XFile(photoLocalPath).readAsBytes();
+      await ref.putData(
+        bytes,
+        SettableMetadata(contentType: 'image/jpeg'),
+      );
+      final url = await ref.getDownloadURL();
+
+      product = product.copyWith(photoUrl: url);
+      final s = state.data;
+      if (s != null) {
+        final newToTry = s.toTry.map((p) => p.id == id ? product : p).toList();
+        updated = s.copyWith(toTry: newToTry);
+        state = state.copyWith(shelf: AsyncData(updated));
+      }
+    } catch (_) {
+      // Ignore upload failure — product is saved without photo.
+    }
+
+    // Save immediately (not debounced) so the photo URL is persisted before
+    // the function returns, even if the notifier is about to be disposed.
+    await _save(updated);
+  }
+
+  // ── Copy to both routines ─────────────────────────────────────────────────
+
+  /// Copies [product] into both the morning and evening routines with fresh IDs,
+  /// and removes the original from all sections (so it does not stay as a
+  /// duplicate in "Добавленные средства").
+  void copyToRoutines(ProductModel product) {
+    final current = state.data;
+    if (current == null) return;
+
+    final now = DateTime.now().millisecondsSinceEpoch;
+    final morningCopy = product.copyWith(id: '${now}_m');
+    final eveningCopy = product.copyWith(id: '${now}_e');
+
+    // Remove the original so it no longer appears in "added".
+    final base = _removeFromAll(current, product.id);
+
+    final updated = base.copyWith(
+      my: base.my.copyWith(
+        morning: [...base.my.morning, morningCopy],
+        evening: [...base.my.evening, eveningCopy],
+      ),
+    );
+
+    state = state.copyWith(shelf: AsyncData(updated));
     _scheduleSave(updated);
   }
 
@@ -192,13 +228,16 @@ class ShelfNotifier extends StateNotifier<ShelfState> {
     state = state.copyWith(shelf: AsyncData(updated));
     _scheduleSave(updated);
 
-    // Upload new photo in background; patch state when done.
+    // Upload new photo; save immediately once URL is ready.
     if (newPhotoLocalPath != null) {
       try {
         final ref = FirebaseStorage.instance
             .ref('users/$uid/products/${product.id}.jpg');
         final bytes = await XFile(newPhotoLocalPath).readAsBytes();
-        await ref.putData(bytes);
+        await ref.putData(
+          bytes,
+          SettableMetadata(contentType: 'image/jpeg'),
+        );
         final url = await ref.getDownloadURL();
 
         final withPhoto = product.copyWith(photoUrl: url);
@@ -206,7 +245,7 @@ class ShelfNotifier extends StateNotifier<ShelfState> {
         if (s != null) {
           final patched = _replaceInAll(s, withPhoto);
           state = state.copyWith(shelf: AsyncData(patched));
-          _scheduleSave(patched);
+          await _save(patched);
         }
       } catch (_) {
         // Ignore — product is saved without the new photo.

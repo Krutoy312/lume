@@ -177,31 +177,40 @@ class _EmptyState extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final w = MediaQuery.sizeOf(context).width;
-    return Center(
-      child: Padding(
-        padding: EdgeInsets.symmetric(horizontal: w * 0.102),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Image.asset(
-              'assets/images/img_character_chat.png',
-              width: w * 0.305,
-            ),
-            SizedBox(height: w * 0.051),
-            Text(
-              'Привет! Я Lume — твой AI-ассистент по уходу за кожей.\n\nЗадай мне вопрос или выбери функцию через меню.',
-              textAlign: TextAlign.center,
-              style: TextStyle(
-                fontFamily: 'SF Pro',
-                fontSize: w * 0.036,
-                fontWeight: FontWeight.w400,
-                color: AppColors.primaryMedium,
-                height: 1.5,
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        return SingleChildScrollView(
+          child: ConstrainedBox(
+            constraints: BoxConstraints(minHeight: constraints.maxHeight),
+            child: Center(
+              child: Padding(
+                padding: EdgeInsets.symmetric(horizontal: w * 0.102),
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Image.asset(
+                      'assets/images/img_character_chat.png',
+                      width: w * 0.305,
+                    ),
+                    SizedBox(height: w * 0.051),
+                    Text(
+                      'Привет! Я Lume — твой AI-ассистент по уходу за кожей.\n\nЗадай мне вопрос или выбери функцию через меню.',
+                      textAlign: TextAlign.center,
+                      style: TextStyle(
+                        fontFamily: 'SF Pro',
+                        fontSize: w * 0.036,
+                        fontWeight: FontWeight.w400,
+                        color: AppColors.primaryMedium,
+                        height: 1.5,
+                      ),
+                    ),
+                  ],
+                ),
               ),
             ),
-          ],
-        ),
-      ),
+          ),
+        );
+      },
     );
   }
 }

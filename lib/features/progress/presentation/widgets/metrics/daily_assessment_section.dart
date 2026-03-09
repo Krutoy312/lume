@@ -172,11 +172,13 @@ class _DailyAssessmentSectionState
   /// back), saves the latest selection to Firestore if it changed.
   Future<void> _openChangeMetrics() async {
     final currentTracked = ref.read(trackedMetricsProvider);
+    final mandatory = ref.read(mandatoryMetricsProvider);
     List<String> latestSelection = List.from(currentTracked);
 
     await ChangeMetricsBottomSheet.show(
       context,
       initialTracked: currentTracked,
+      mandatoryMetrics: mandatory,
       onSelectionChanged: (updated) => latestSelection = updated,
     );
 

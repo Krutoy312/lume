@@ -18,6 +18,10 @@ class ProgressScreen extends StatelessWidget {
 
     return Scaffold(
       backgroundColor: AppColors.scaffoldBackground,
+      // Prevent the scaffold from resizing when the keyboard appears.
+      // Without this, Flutter fills the vacated space with the scaffold
+      // background color, showing a gray block beneath the floating nav bar.
+      resizeToAvoidBottomInset: false,
       body: SafeArea(
         child: SingleChildScrollView(
           physics: const BouncingScrollPhysics(),

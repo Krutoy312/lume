@@ -12,6 +12,7 @@ import '../widgets/account_section_label.dart';
 import '../widgets/account_settings_card.dart';
 import '../widgets/care_time_bottom_sheet.dart';
 import '../widgets/edit_name_bottom_sheet.dart';
+import '../widgets/goal_bottom_sheet.dart';
 import '../widgets/skin_type_bottom_sheet.dart';
 
 /// Account & settings screen.
@@ -102,9 +103,9 @@ class _AccountScreenState extends ConsumerState<AccountScreen> {
               AccountRowData(
                 icon: 'assets/icons/ic_goal.svg',
                 title: 'Цель',
-                subtitle: goal ?? 'Выберите цель',
+                subtitle: goalLabel(goal) ?? 'Выберите цель',
                 trailing: AccountArrowIcon(w: w),
-                onTap: () {},
+                onTap: () => showGoalBottomSheet(context, currentGoal: goal),
               ),
             ],
           ),

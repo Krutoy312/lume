@@ -36,6 +36,7 @@ class AddProductSheet extends ConsumerStatefulWidget {
 
 class _AddProductSheetState extends ConsumerState<AddProductSheet> {
   final _nameController = TextEditingController();
+  final _scrollController = ScrollController();
   String? _selectedCategory;
   XFile? _photo;
 
@@ -45,6 +46,10 @@ class _AddProductSheetState extends ConsumerState<AddProductSheet> {
   bool _saved = false; // guard against double-save
   bool _discarded = false; // set by the × button to skip auto-save
   bool _ocrLoading = false;
+
+  // ── Swipe-down-to-dismiss tracking ─────────────────────────────────────────
+  double _dragStartY = 0;
+  bool _canDismiss = false;
 
   static const _categories = [
     'Очищение',
@@ -383,6 +388,7 @@ class _AddProductSheetState extends ConsumerState<AddProductSheet> {
   @override
   void dispose() {
     _nameController.dispose();
+    _scrollController.dispose();
     super.dispose();
   }
 
@@ -394,19 +400,35 @@ class _AddProductSheetState extends ConsumerState<AddProductSheet> {
     final bottomInset = MediaQuery.viewInsetsOf(context).bottom;
     final systemBottom = MediaQuery.paddingOf(context).bottom;
 
-    return PopScope(
-      canPop: true,
-      onPopInvokedWithResult: (didPop, _) {
-        if (didPop) _save();
+    return Listener(
+      // Raw pointer events — does not participate in the gesture arena, so it
+      // does not conflict with the inner SingleChildScrollView. When the scroll
+      // is at the very top and the user drags down far enough, pop the sheet.
+      behavior: HitTestBehavior.translucent,
+      onPointerDown: (event) {
+        _dragStartY = event.position.dy;
+        _canDismiss = !_scrollController.hasClients ||
+            _scrollController.position.pixels <= 0;
       },
-      child: Container(
+      onPointerMove: (event) {
+        if (!_canDismiss) return;
+        if (event.position.dy - _dragStartY > 80) {
+          _canDismiss = false;
+          Navigator.of(context).maybePop();
+        }
+      },
+      child: PopScope(
+        canPop: true,
+        onPopInvokedWithResult: (didPop, _) {
+          if (didPop) _save();
+        },
+        child: Container(
         decoration: BoxDecoration(
           color: AppColors.surface,
           borderRadius: BorderRadius.vertical(top: Radius.circular(w * 0.061)),
         ),
         child: SingleChildScrollView(
-          // ClampingScrollPhysics: at scroll-top the drag propagates to the
-          // sheet so the user can swipe the whole sheet down to dismiss.
+          controller: _scrollController,
           physics: const ClampingScrollPhysics(),
           padding: EdgeInsets.only(
             left: w * 0.051,
@@ -571,7 +593,7 @@ class _AddProductSheetState extends ConsumerState<AddProductSheet> {
           ),
         ),
       ),
-    );
+    ));
   }
 }
 

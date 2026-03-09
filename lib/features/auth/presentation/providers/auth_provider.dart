@@ -67,6 +67,8 @@ class AuthController extends StateNotifier<AsyncValue<void>> {
   Future<void> updateName(String name) => _run(() => _service.updateName(name));
   Future<void> updateSkinType(String skinType) =>
       _run(() => _service.updateSkinType(skinType));
+  Future<void> updateGoal(String goal, List<String> trackedMetrics) =>
+      _run(() => _service.updateGoal(goal, trackedMetrics));
   Future<void> updateCareTimes({
     required int morningMinutes,
     required int eveningMinutes,

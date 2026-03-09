@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:flutter_svg/flutter_svg.dart';
 
 import '../../../../core/theme/app_colors.dart';
 import '../../../../core/theme/app_text_styles.dart';
@@ -19,6 +20,7 @@ class ProductCard extends ConsumerWidget {
     required this.product,
     required this.scheduleLabel,
     this.showPulse = false,
+    this.onCopyToBoth,
   });
 
   final ProductModel product;
@@ -28,6 +30,10 @@ class ProductCard extends ConsumerWidget {
 
   /// Whether to show the animated pulse indicator (top-right corner).
   final bool showPulse;
+
+  /// When non-null, shows a "copy to both routines" button instead of the
+  /// schedule label. Tapping it calls this callback.
+  final VoidCallback? onCopyToBoth;
 
   void _openEditSheet(BuildContext context) {
     showModalBottomSheet<void>(
@@ -47,6 +53,7 @@ class ProductCard extends ConsumerWidget {
       product: product,
       scheduleLabel: scheduleLabel,
       showPulse: showPulse,
+      onCopyToBoth: onCopyToBoth,
     );
 
     return GestureDetector(
@@ -113,11 +120,13 @@ class _CardContent extends StatelessWidget {
     required this.product,
     required this.scheduleLabel,
     required this.showPulse,
+    this.onCopyToBoth,
   });
 
   final ProductModel product;
   final String scheduleLabel;
   final bool showPulse;
+  final VoidCallback? onCopyToBoth;
 
   @override
   Widget build(BuildContext context) {
@@ -159,6 +168,8 @@ class _CardContent extends StatelessWidget {
                       child: product.photoUrl != null
                           ? Image.network(
                               product.photoUrl!,
+                              width: double.infinity,
+                              height: double.infinity,
                               fit: BoxFit.cover,
                               errorBuilder: (_, __, ___) =>
                                   const _PhotoPlaceholder(),
@@ -191,16 +202,19 @@ class _CardContent extends StatelessWidget {
                             children: [
                               _CategoryChip(category: product.category),
                               const Spacer(),
-                              Text(
-                                scheduleLabel,
-                                style: const TextStyle(
-                                  fontFamily: 'SF Pro',
-                                  fontSize: 10,
-                                  fontWeight: FontWeight.w400,
-                                  color: AppColors.primaryDark,
-                                  height: 1.2,
+                              if (onCopyToBoth != null)
+                                _CopyToBothButton(onTap: onCopyToBoth!)
+                              else
+                                Text(
+                                  scheduleLabel,
+                                  style: const TextStyle(
+                                    fontFamily: 'SF Pro',
+                                    fontSize: 10,
+                                    fontWeight: FontWeight.w400,
+                                    color: AppColors.primaryDark,
+                                    height: 1.2,
+                                  ),
                                 ),
-                              ),
                             ],
                           ),
                         ],
@@ -217,6 +231,58 @@ class _CardContent extends StatelessWidget {
                 right: 8,
                 child: PulseIndicator(),
               ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+// ─── Copy-to-both button ──────────────────────────────────────────────────────
+
+class _CopyToBothButton extends StatelessWidget {
+  const _CopyToBothButton({required this.onTap});
+
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final w = MediaQuery.sizeOf(context).width;
+    return GestureDetector(
+      onTap: onTap,
+      child: Container(
+        height: w * 0.051, // same as category chip
+        padding: EdgeInsets.symmetric(horizontal: w * 0.020),
+        decoration: BoxDecoration(
+          color: AppColors.golden.withValues(alpha: 0.12),
+          borderRadius: BorderRadius.circular(w * 0.038),
+          border: Border.all(
+            color: AppColors.golden.withValues(alpha: 0.4),
+            width: 0.5,
+          ),
+        ),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            SvgPicture.asset(
+              'assets/icons/ic_sun.svg',
+              width: w * 0.030,
+              height: w * 0.030,
+              colorFilter: const ColorFilter.mode(
+                AppColors.golden,
+                BlendMode.srcIn,
+              ),
+            ),
+            SizedBox(width: w * 0.010),
+            SvgPicture.asset(
+              'assets/icons/ic_moon.svg',
+              width: w * 0.030,
+              height: w * 0.030,
+              colorFilter: const ColorFilter.mode(
+                AppColors.golden,
+                BlendMode.srcIn,
+              ),
+            ),
           ],
         ),
       ),

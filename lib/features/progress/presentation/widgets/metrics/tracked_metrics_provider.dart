@@ -10,6 +10,28 @@ const kDefaultTrackedKeys = [
   'porePurity',
 ];
 
+/// Returns the 4 mandatory metric keys for a given [goal] value.
+///
+/// These metrics cannot be removed from tracking while the goal is active.
+List<String> mandatoryMetricsForGoal(String? goal) {
+  switch (goal) {
+    case 'clear_skin':
+      return ['skinClarity', 'porePurity', 'sebumBalance', 'smoothness'];
+    case 'oil_control':
+      return ['sebumBalance', 'porePurity', 'hydration', 'skinClarity'];
+    case 'hydration_balance':
+      return ['hydration', 'elasticity', 'evenTone', 'smoothness'];
+    case 'texture':
+      return ['smoothness', 'skinClarity', 'hydration', 'porePurity'];
+    case 'firmness':
+      return ['elasticity', 'evenTone', 'hydration', 'smoothness'];
+    case 'maintenance':
+      return [];
+    default:
+      return kDefaultTrackedKeys;
+  }
+}
+
 /// Derives the user's active tracked-metric keys from their Firestore profile
 /// document in real time.
 ///
@@ -28,5 +50,21 @@ final trackedMetricsProvider = Provider<List<String>>((ref) {
     },
     loading: () => kDefaultTrackedKeys,
     error: (_, __) => kDefaultTrackedKeys,
+  );
+});
+
+/// The set of metric keys that are mandatory for the user's current goal.
+///
+/// Used by [ChangeMetricsBottomSheet] to prevent the user from disabling
+/// metrics that are required to track their selected goal.
+final mandatoryMetricsProvider = Provider<Set<String>>((ref) {
+  final docAsync = ref.watch(userDocumentProvider);
+  return docAsync.when(
+    data: (snap) {
+      final goal = snap?.data()?['goal'] as String?;
+      return Set<String>.from(mandatoryMetricsForGoal(goal));
+    },
+    loading: () => Set<String>.from(kDefaultTrackedKeys),
+    error: (_, __) => const {},
   );
 });

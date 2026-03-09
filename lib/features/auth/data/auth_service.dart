@@ -203,6 +203,30 @@ class AuthService {
     }
   }
 
+  // ── Update goal ─────────────────────────────────────────────────────────────
+
+  /// Writes [goal] and the derived [trackedMetrics] to the user's Firestore
+  /// document atomically. Both fields are updated in a single call so the
+  /// tracked-metric list is always consistent with the active goal.
+  Future<void> updateGoal(String goal, List<String> trackedMetrics) async {
+    final user = _auth.currentUser;
+    if (user == null) throw AuthFailure.unknown;
+
+    try {
+      await FirebaseFirestore.instance
+          .collection('users')
+          .doc(user.uid)
+          .update({
+            'goal': goal,
+            'trackedMetrics': trackedMetrics,
+          });
+    } on FirebaseAuthException catch (e) {
+      throw AuthFailure.fromFirebaseCode(e.code);
+    } catch (_) {
+      throw AuthFailure.unknown;
+    }
+  }
+
   // ── Update skin type ────────────────────────────────────────────────────────
 
   /// Writes [skinType] to the current user's Firestore document.

@@ -29,16 +29,21 @@ class ChangeMetricsBottomSheet extends StatefulWidget {
     super.key,
     required this.initialTracked,
     required this.onSelectionChanged,
+    this.mandatoryMetrics = const {},
   });
 
   final List<String> initialTracked;
   final ValueChanged<List<String>> onSelectionChanged;
+
+  /// Metric keys that cannot be deselected (required by the user's goal).
+  final Set<String> mandatoryMetrics;
 
   /// Convenience factory — shows the sheet and returns when dismissed.
   static Future<void> show(
     BuildContext context, {
     required List<String> initialTracked,
     required ValueChanged<List<String>> onSelectionChanged,
+    Set<String> mandatoryMetrics = const {},
   }) {
     return showModalBottomSheet<void>(
       context: context,
@@ -47,6 +52,7 @@ class ChangeMetricsBottomSheet extends StatefulWidget {
       builder: (_) => ChangeMetricsBottomSheet(
         initialTracked: initialTracked,
         onSelectionChanged: onSelectionChanged,
+        mandatoryMetrics: mandatoryMetrics,
       ),
     );
   }
@@ -67,6 +73,19 @@ class _ChangeMetricsBottomSheetState extends State<ChangeMetricsBottomSheet> {
 
   void _toggle(String key) {
     if (_selected.contains(key)) {
+      // Block removal of mandatory metrics.
+      if (widget.mandatoryMetrics.contains(key)) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text(
+              'Этот показатель обязателен для вашей цели и не может быть отключён.',
+            ),
+            behavior: SnackBarBehavior.floating,
+            duration: Duration(seconds: 3),
+          ),
+        );
+        return;
+      }
       if (_selected.length <= 1) return; // always keep at least one metric
       _selected.remove(key);
     } else {
@@ -163,6 +182,7 @@ class _ChangeMetricsBottomSheetState extends State<ChangeMetricsBottomSheet> {
                   child: _MetricTile(
                     meta: m,
                     isSelected: _selected.contains(m.key),
+                    isMandatory: widget.mandatoryMetrics.contains(m.key),
                     onTap: () => _toggle(m.key),
                     w: w,
                   ),
@@ -183,12 +203,14 @@ class _MetricTile extends StatelessWidget {
   const _MetricTile({
     required this.meta,
     required this.isSelected,
+    required this.isMandatory,
     required this.onTap,
     required this.w,
   });
 
   final MetricMeta meta;
   final bool isSelected;
+  final bool isMandatory;
   final VoidCallback onTap;
   final double w;
 
@@ -232,8 +254,16 @@ class _MetricTile extends StatelessWidget {
                 ),
               ),
             ),
-            // Check mark — SVG already carries golden fill, no colorFilter.
-            if (isSelected)
+            // Trailing: lock for mandatory, check mark for freely selected.
+            if (isMandatory)
+              Icon(
+                Icons.lock_outline_rounded,
+                size: w * 0.046,
+                color: isSelected
+                    ? AppColors.golden.withValues(alpha: 0.6)
+                    : const Color(0xFFE3E3E3),
+              )
+            else if (isSelected)
               SvgPicture.asset(
                 'assets/icons/ic_check_mark.svg',
                 width: w * 0.051,

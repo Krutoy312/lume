@@ -195,6 +195,9 @@ class _ShelfSection extends StatelessWidget {
                       product: product,
                       scheduleLabel: scheduleLabel(product),
                       showPulse: showPulse(product),
+                      onCopyToBoth: sectionId == kShelfSectionAdded
+                          ? () => notifier.copyToRoutines(product)
+                          : null,
                     ),
                   ),
                 ),

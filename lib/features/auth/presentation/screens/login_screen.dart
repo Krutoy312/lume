@@ -1,6 +1,7 @@
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:flutter_svg/flutter_svg.dart';
 
 import '../../../../core/theme/app_colors.dart';
 import '../../../../core/theme/app_text_styles.dart';
@@ -78,7 +79,11 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                   // ── Sign-in buttons ───────────────────────────────────────
                   SocialSignInButton(
                     label: 'Войти через Google',
-                    leadingIcon: GoogleLogoIcon(size: w * 0.051),
+                    leadingIcon: SvgPicture.asset(
+                      'assets/icons/ic_google.svg',
+                      width: w * 0.051,
+                      height: w * 0.051,
+                    ),
                     backgroundColor: AppColors.surface,
                     foregroundColor: AppColors.primaryDark,
                     borderColor: AppColors.progressBarBack,

@@ -27,6 +27,7 @@ class MonthPickerSheet extends ConsumerWidget {
     }
     final years = byYear.keys.toList()..sort();
 
+    final sysPad = MediaQuery.paddingOf(context).bottom;
     return Container(
       decoration: BoxDecoration(
         color: AppColors.surface,
@@ -34,7 +35,7 @@ class MonthPickerSheet extends ConsumerWidget {
             BorderRadius.vertical(top: Radius.circular(w * 0.051)),
       ),
       padding: EdgeInsets.fromLTRB(
-          w * 0.051, w * 0.025, w * 0.051, w * 0.061),
+          w * 0.051, w * 0.025, w * 0.051, w * 0.061 + sysPad),
       child: Column(
         mainAxisSize: MainAxisSize.min,
         crossAxisAlignment: CrossAxisAlignment.start,

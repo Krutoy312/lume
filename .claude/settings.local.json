@@ -31,7 +31,8 @@
       "Bash(gcloud config:*)",
       "mcp__ide__getDiagnostics",
       "Bash(\"/c/Android Studio/jbr/bin/keytool\":*)",
-      "mcp__figma__get_screenshot"
+      "mcp__figma__get_screenshot",
+      "Bash(xargs grep:*)"
     ]
   }
 }

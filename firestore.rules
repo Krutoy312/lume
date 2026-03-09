@@ -35,7 +35,8 @@ service cloud.firestore {
         'shelf',
         'timezone', 'trackedMetrics',
         'notificationsEnabled', 'morningMinutes', 'eveningMinutes',
-        'updatedAt'
+        'updatedAt',
+        'onboardingCompleted'
       ];
     }
 

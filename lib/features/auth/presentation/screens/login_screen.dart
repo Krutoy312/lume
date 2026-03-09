@@ -109,19 +109,6 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
 
                   if (Platform.isIOS) SizedBox(height: w * 0.031),
 
-                  // ── Divider ───────────────────────────────────────────────
-                  _OrDivider(w: w),
-
-                  SizedBox(height: w * 0.046),
-
-                  // ── Anonymous ─────────────────────────────────────────────
-                  _AnonymousButton(
-                    isLoading: _activeMethod == _AuthMethod.anonymous,
-                    onPressed: isLoading
-                        ? null
-                        : () => _signIn(_AuthMethod.anonymous),
-                  ),
-
                   const Spacer(flex: 2),
 
                   // ── Legal note ────────────────────────────────────────────
@@ -146,15 +133,13 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
         await controller.signInWithGoogle();
       case _AuthMethod.apple:
         await controller.signInWithApple();
-      case _AuthMethod.anonymous:
-        await controller.signInAnonymously();
     }
   }
 }
 
 // ── Enum ──────────────────────────────────────────────────────────────────────
 
-enum _AuthMethod { google, apple, anonymous }
+enum _AuthMethod { google, apple }
 
 // ── Sub-widgets ───────────────────────────────────────────────────────────────
 
@@ -242,70 +227,6 @@ class _ErrorBanner extends StatelessWidget {
           ),
         ],
       ),
-    );
-  }
-}
-
-class _OrDivider extends StatelessWidget {
-  const _OrDivider({required this.w});
-
-  final double w;
-
-  @override
-  Widget build(BuildContext context) {
-    return Row(
-      children: [
-        const Expanded(child: Divider(color: AppColors.progressBarBack)),
-        Padding(
-          padding: EdgeInsets.symmetric(horizontal: w * 0.036),
-          child: Text(
-            'или',
-            style: AppTextStyles.labelMedium.copyWith(
-              color: AppColors.primaryLight,
-            ),
-          ),
-        ),
-        const Expanded(child: Divider(color: AppColors.progressBarBack)),
-      ],
-    );
-  }
-}
-
-class _AnonymousButton extends StatelessWidget {
-  const _AnonymousButton({required this.isLoading, required this.onPressed});
-
-  final bool isLoading;
-  final VoidCallback? onPressed;
-
-  @override
-  Widget build(BuildContext context) {
-    final w = MediaQuery.sizeOf(context).width;
-    return TextButton(
-      onPressed: onPressed,
-      style: TextButton.styleFrom(
-        foregroundColor: AppColors.primaryMedium,
-        padding: EdgeInsets.symmetric(
-          horizontal: w * 0.051,
-          vertical: w * 0.025,
-        ),
-      ),
-      child: isLoading
-          ? const SizedBox(
-              width: 18,
-              height: 18,
-              child: CircularProgressIndicator(
-                color: AppColors.primaryMedium,
-                strokeWidth: 2,
-              ),
-            )
-          : Text(
-              'Продолжить без аккаунта',
-              style: AppTextStyles.labelMedium.copyWith(
-                color: AppColors.primaryMedium,
-                decoration: TextDecoration.underline,
-                decorationColor: AppColors.primaryMedium,
-              ),
-            ),
     );
   }
 }

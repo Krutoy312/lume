@@ -109,20 +109,6 @@ class AuthService {
     }
   }
 
-  // ── Anonymous ───────────────────────────────────────────────────────────────
-
-  /// Signs in without any user identity.
-  /// Firebase still fires `auth/user.onCreate`, so the CF creates a user doc.
-  Future<void> signInAnonymously() async {
-    try {
-      await _auth.signInAnonymously();
-    } on FirebaseAuthException catch (e) {
-      throw AuthFailure.fromFirebaseCode(e.code);
-    } catch (_) {
-      throw AuthFailure.unknown;
-    }
-  }
-
   // ── Sign out ────────────────────────────────────────────────────────────────
 
   /// Signs out from Firebase and clears the cached Google account.

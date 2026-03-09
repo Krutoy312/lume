@@ -62,7 +62,6 @@ class AuthController extends StateNotifier<AsyncValue<void>> {
 
   Future<void> signInWithGoogle() => _run(_service.signInWithGoogle);
   Future<void> signInWithApple() => _run(_service.signInWithApple);
-  Future<void> signInAnonymously() => _run(_service.signInAnonymously);
   Future<void> signOut() => _run(_service.signOut);
   Future<void> deleteAccount() => _run(_service.deleteAccount);
   Future<void> updateName(String name) => _run(() => _service.updateName(name));

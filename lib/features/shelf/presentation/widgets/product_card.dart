@@ -178,11 +178,12 @@ class _CardContent extends StatelessWidget {
                     ),
                   ),
                   SizedBox(width: gap),
-                  // Text area
+                  // Text area — extra right padding when the pulse indicator
+                  // is visible so the title never overlaps it.
                   Expanded(
                     child: Padding(
                       padding: EdgeInsets.only(
-                        right: w * 0.020,
+                        right: showPulse ? w * 0.112 : w * 0.020,
                         top: w * 0.015,
                         bottom: w * 0.015,
                       ),

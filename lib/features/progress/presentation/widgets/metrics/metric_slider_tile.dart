@@ -114,7 +114,6 @@ class MetricSliderTile extends StatelessWidget {
                 value: value,
                 min: 1,
                 max: 10,
-                divisions: 9,
                 onChanged: onChanged,
               ),
             ),
@@ -228,15 +227,6 @@ class _GoldenThumbShape extends SliderComponentShape {
     required Size sizeWithOverflow,
   }) {
     final canvas = context.canvas;
-
-    // Subtle golden glow
-    canvas.drawCircle(
-      center,
-      radius + 2,
-      Paint()
-        ..color = AppColors.golden.withValues(alpha: 0.20)
-        ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 4),
-    );
 
     // White fill
     canvas.drawCircle(center, radius, Paint()..color = AppColors.surface);

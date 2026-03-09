@@ -7,6 +7,7 @@ import 'package:flutter_svg/flutter_svg.dart';
 import 'package:image_picker/image_picker.dart';
 
 import '../../../../core/theme/app_colors.dart';
+import '../../data/services/speech_to_text_service.dart';
 import '../controllers/chat_controller.dart';
 
 /// The bottom input area: optional menu panel + optional mode chip + input row.
@@ -21,10 +22,15 @@ class ChatInputBar extends ConsumerStatefulWidget {
 
 class _ChatInputBarState extends ConsumerState<ChatInputBar> {
   final _controller = TextEditingController();
+  final _stt = SpeechToTextService();
+
+  bool _isRecording = false;
+  bool _isTranscribing = false;
 
   @override
   void dispose() {
     _controller.dispose();
+    _stt.dispose(); // returns Future but we fire-and-forget on widget dispose
     super.dispose();
   }
 
@@ -32,6 +38,48 @@ class _ChatInputBarState extends ConsumerState<ChatInputBar> {
     widget.onSend(_controller.text);
     _controller.clear();
     setState(() {}); // rebuild to update send button state
+  }
+
+  Future<void> _toggleRecording() async {
+    if (_isRecording) {
+      setState(() {
+        _isRecording = false;
+        _isTranscribing = true;
+      });
+      try {
+        final text = await _stt.stopAndTranscribe();
+        if (mounted && text.isNotEmpty) {
+          _controller.text = text;
+          _controller.selection = TextSelection.collapsed(offset: text.length);
+          setState(() {});
+        }
+      } catch (e) {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text('Ошибка распознавания: ${e.toString()}'),
+              behavior: SnackBarBehavior.floating,
+            ),
+          );
+        }
+      } finally {
+        if (mounted) setState(() => _isTranscribing = false);
+      }
+    } else {
+      try {
+        await _stt.startRecording();
+        if (mounted) setState(() => _isRecording = true);
+      } catch (e) {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text('Не удалось начать запись: ${e.toString()}'),
+              behavior: SnackBarBehavior.floating,
+            ),
+          );
+        }
+      }
+    }
   }
 
   Future<void> _pickPhoto() async {
@@ -129,6 +177,9 @@ class _ChatInputBarState extends ConsumerState<ChatInputBar> {
                   onMenuTap: notifier.toggleMenu,
                   onAttachTap: _pickPhoto,
                   onSend: _send,
+                  onMicTap: _toggleRecording,
+                  isRecording: _isRecording,
+                  isTranscribing: _isTranscribing,
                   w: w,
                 ),
               ],
@@ -331,6 +382,9 @@ class _InputRow extends StatelessWidget {
     required this.onMenuTap,
     required this.onAttachTap,
     required this.onSend,
+    required this.onMicTap,
+    required this.isRecording,
+    required this.isTranscribing,
     required this.w,
   });
 
@@ -339,6 +393,9 @@ class _InputRow extends StatelessWidget {
   final VoidCallback onMenuTap;
   final VoidCallback onAttachTap;
   final VoidCallback onSend;
+  final VoidCallback onMicTap;
+  final bool isRecording;
+  final bool isTranscribing;
   final double w;
 
   @override
@@ -346,8 +403,8 @@ class _InputRow extends StatelessWidget {
     return ListenableBuilder(
       listenable: controller,
       builder: (_, __) {
+        final hasText = controller.text.trim().isNotEmpty;
         final canSend = state.canSend(controller.text);
-        final showAttach = true;
         final attachEnabled =
             state.selectedMode.showAttach ||
             state.selectedMode == ChatMode.none;
@@ -385,12 +442,18 @@ class _InputRow extends StatelessWidget {
                     height: 1.4,
                   ),
                   decoration: InputDecoration(
-                    hintText: 'Сообщение...',
+                    hintText: isRecording
+                        ? 'Говорите...'
+                        : isTranscribing
+                            ? 'Распознаём...'
+                            : 'Сообщение...',
                     hintStyle: TextStyle(
                       fontFamily: 'SF Pro',
                       fontSize: w * 0.031,
                       fontWeight: FontWeight.w400,
-                      color: const Color(0xFFA7947F),
+                      color: isRecording
+                          ? AppColors.golden
+                          : const Color(0xFFA7947F),
                     ),
                     border: InputBorder.none,
                     enabledBorder: InputBorder.none,
@@ -404,35 +467,67 @@ class _InputRow extends StatelessWidget {
               SizedBox(width: w * 0.020),
 
               // ic_attach (conditionally shown)
-              if (showAttach)
-                GestureDetector(
-                  onTap: attachEnabled ? onAttachTap : null,
-                  behavior: HitTestBehavior.opaque,
-                  child: Opacity(
-                    opacity: attachEnabled ? 1.0 : 0.35,
-                    child: SvgPicture.asset(
-                      'assets/icons/ic_attach.svg',
-                      width: w * 0.046,
-                      height: w * 0.046,
-                    ),
-                  ),
-                ),
-
-              SizedBox(width: w * 0.015),
-
-              // ic_send
               GestureDetector(
-                onTap: canSend ? onSend : null,
+                onTap: attachEnabled ? onAttachTap : null,
                 behavior: HitTestBehavior.opaque,
                 child: Opacity(
-                  opacity: canSend ? 1.0 : 0.35,
+                  opacity: attachEnabled ? 1.0 : 0.35,
                   child: SvgPicture.asset(
-                    'assets/icons/ic_send.svg',
+                    'assets/icons/ic_attach.svg',
                     width: w * 0.046,
                     height: w * 0.046,
                   ),
                 ),
               ),
+
+              SizedBox(width: w * 0.015),
+
+              // Send button OR microphone button
+              if (hasText || canSend)
+                GestureDetector(
+                  onTap: canSend ? onSend : null,
+                  behavior: HitTestBehavior.opaque,
+                  child: Opacity(
+                    opacity: canSend ? 1.0 : 0.35,
+                    child: SvgPicture.asset(
+                      'assets/icons/ic_send.svg',
+                      width: w * 0.046,
+                      height: w * 0.046,
+                    ),
+                  ),
+                )
+              else if (isTranscribing)
+                SizedBox(
+                  width: w * 0.046,
+                  height: w * 0.046,
+                  child: CircularProgressIndicator(
+                    strokeWidth: 2,
+                    valueColor: const AlwaysStoppedAnimation(AppColors.golden),
+                  ),
+                )
+              else
+                GestureDetector(
+                  onTap: onMicTap,
+                  behavior: HitTestBehavior.opaque,
+                  child: AnimatedContainer(
+                    duration: const Duration(milliseconds: 200),
+                    width: w * 0.046,
+                    height: w * 0.046,
+                    decoration: isRecording
+                        ? BoxDecoration(
+                            shape: BoxShape.circle,
+                            color: AppColors.golden.withValues(alpha: 0.15),
+                          )
+                        : null,
+                    child: Icon(
+                      isRecording ? Icons.stop_rounded : Icons.mic_none_rounded,
+                      size: w * 0.046,
+                      color: isRecording
+                          ? AppColors.golden
+                          : AppColors.primaryMedium,
+                    ),
+                  ),
+                ),
             ],
           ),
         );

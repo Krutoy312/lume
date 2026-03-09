@@ -157,20 +157,10 @@ class _BrandingSection extends StatelessWidget {
   Widget build(BuildContext context) {
     return Column(
       children: [
-        // Mascot placeholder — replaced with Lottie animation later.
-        Container(
-          width: w * 0.254,
-          height: w * 0.254,
-          decoration: const BoxDecoration(
-            color: AppColors.progressBarBack,
-            shape: BoxShape.circle,
-          ),
-          child: Center(
-            child: Text(
-              '🧴',
-              style: TextStyle(fontSize: w * 0.112),
-            ),
-          ),
+        Image.asset(
+          'assets/images/img_character_reg.png',
+          width: w * 0.508,
+          fit: BoxFit.contain,
         ),
 
         SizedBox(height: w * 0.061),

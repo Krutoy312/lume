@@ -3,31 +3,35 @@ import 'package:flutter/material.dart';
 import '../../../../core/theme/app_colors.dart';
 
 /// Fixed top bar: character avatar + "Lume" title + "AI-ассистент" subtitle.
-class ChatAppBar extends StatelessWidget implements PreferredSizeWidget {
+///
+/// Expands vertically to accommodate the system status bar so the image is
+/// never clipped on any device.
+class ChatAppBar extends StatelessWidget {
   const ChatAppBar({super.key});
-
-  @override
-  Size get preferredSize => const Size.fromHeight(92);
 
   @override
   Widget build(BuildContext context) {
     final w = MediaQuery.sizeOf(context).width;
+    final topPad = MediaQuery.paddingOf(context).top;
+    // Avatar diameter + vertical padding on each side.
+    final avatarSize = w * 0.107;
+    final vertPad = w * 0.025;
 
     return Container(
-      height: 92,
       color: AppColors.surface,
-      padding: EdgeInsets.only(
-        left: w * 0.051,
-        right: w * 0.051,
-        top: MediaQuery.paddingOf(context).top,
+      padding: EdgeInsets.fromLTRB(
+        w * 0.051,
+        topPad + vertPad,
+        w * 0.051,
+        vertPad,
       ),
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.center,
         children: [
-          // Character avatar circle
+          // Character avatar circle — sized and clipped to never overflow.
           Container(
-            width: w * 0.107, // ~42px
-            height: w * 0.107,
+            width: avatarSize,
+            height: avatarSize,
             decoration: const BoxDecoration(
               shape: BoxShape.circle,
               color: AppColors.progressBarBack,
@@ -40,7 +44,7 @@ class ChatAppBar extends StatelessWidget implements PreferredSizeWidget {
           ),
           SizedBox(width: w * 0.030),
           Column(
-            mainAxisAlignment: MainAxisAlignment.center,
+            mainAxisSize: MainAxisSize.min,
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Text(

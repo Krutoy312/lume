@@ -246,7 +246,8 @@ class _HeaderBlock extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final total = slot?.totalCount ?? 0;
-    final done = slot?.used.length ?? 0;
+    // doneCount = used + skipped so swipe-left (skip) also advances the bar.
+    final done = slot?.doneCount ?? 0;
     final progress = total > 0 ? (done / total).clamp(0.0, 1.0) : 0.0;
 
     return Padding(

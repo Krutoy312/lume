@@ -21,14 +21,17 @@ class RoutineNotifier extends StateNotifier<RoutineState> {
 
   // ── Public API ────────────────────────────────────────────────────────────
 
-  /// Reads the user document once, syncs routine to today if stale, and
-  /// updates local state. Safe to call multiple times — no-ops if today's
-  /// routine is already loaded.
+  /// Reads both the stored routine and the current shelf from Firestore, then
+  /// syncs them:
+  ///
+  /// • **New day** — builds a fresh routine from the shelf and saves it.
+  /// • **Same day** — merges the saved routine with the current shelf so that
+  ///   newly added products are added to `planned` and removed products are
+  ///   dropped, while `used`/`skipped` state is preserved.
+  ///
+  /// Always hits Firestore (no early return) so the routine stays accurate
+  /// after shelf edits even within the same session.
   Future<void> loadAndSync() async {
-    // Skip if we already have today's routine in memory.
-    final current = state.valueOrNull;
-    if (current != null && current.date == _todayKey()) return;
-
     state = const AsyncLoading();
     try {
       final uid = _uid;
@@ -37,19 +40,30 @@ class RoutineNotifier extends StateNotifier<RoutineState> {
 
       // Parse the stored routine (may be absent on first run).
       final rawRoutine = data['routine'];
-      DailyRoutineModel? routine = rawRoutine != null
+      final savedRoutine = rawRoutine != null
           ? DailyRoutineModel.fromJson(rawRoutine as Map<String, dynamic>)
           : null;
 
-      // Parse the shelf to build today's planned lists.
+      // Parse the shelf so we know which products exist and are scheduled.
       final rawShelf = data['shelf'];
       final shelf = rawShelf != null
           ? ShelfModel.fromJson(rawShelf as Map<String, dynamic>)
           : ShelfModel.empty();
 
       final today = _todayKey();
-      if (routine == null || routine.date != today) {
+      DailyRoutineModel routine;
+
+      if (savedRoutine == null || savedRoutine.date != today) {
+        // New day or first run — start fresh.
         routine = _buildForToday(today, shelf);
+      } else {
+        // Same day — merge saved state with current shelf so new products
+        // appear and removed products disappear.
+        routine = _syncWithShelf(savedRoutine, shelf);
+      }
+
+      // Persist only if something changed (avoids needless writes).
+      if (routine != savedRoutine) {
         await _save(routine);
       }
 
@@ -57,6 +71,21 @@ class RoutineNotifier extends StateNotifier<RoutineState> {
     } catch (e, st) {
       state = AsyncError(e, st);
     }
+  }
+
+  /// Merges the in-memory routine with [shelf] without hitting Firestore.
+  ///
+  /// Called when the shelf changes in-session so newly added products appear
+  /// in the home screen cards immediately without waiting for an app restart.
+  Future<void> syncWithShelf(ShelfModel shelf) async {
+    final current = state.valueOrNull;
+    if (current == null) return; // loadAndSync hasn't run yet — nothing to merge.
+
+    final synced = _syncWithShelf(current, shelf);
+    if (synced == current) return; // nothing changed
+
+    state = AsyncData(synced);
+    await _save(synced);
   }
 
   /// Toggles the used state for [productId] in the morning or evening slot.
@@ -121,7 +150,7 @@ class RoutineNotifier extends StateNotifier<RoutineState> {
     return '${now.year}-$m-$d';
   }
 
-  /// Builds a fresh routine for [today] from [shelf], resetting skipped/used.
+  /// Builds a fresh routine for [today] from [shelf], resetting all state.
   static DailyRoutineModel _buildForToday(String today, ShelfModel shelf) {
     return DailyRoutineModel(
       date: today,
@@ -137,6 +166,57 @@ class RoutineNotifier extends StateNotifier<RoutineState> {
             .map((p) => p.id)
             .toList(),
       ),
+    );
+  }
+
+  /// Syncs [routine] against the current [shelf]:
+  ///
+  /// • Products still in the shelf keep their used/skipped/planned state.
+  /// • Products added to the shelf since the routine was built are added to
+  ///   `planned`.
+  /// • Products removed from the shelf are dropped from all lists.
+  static DailyRoutineModel _syncWithShelf(
+    DailyRoutineModel routine,
+    ShelfModel shelf,
+  ) {
+    return routine.copyWith(
+      morningRoutine: _syncSlot(routine.morningRoutine, shelf.my.morning),
+      eveningRoutine: _syncSlot(routine.eveningRoutine, shelf.my.evening),
+    );
+  }
+
+  /// Syncs a single slot against [shelfProducts].
+  static RoutineSlotModel _syncSlot(
+    RoutineSlotModel slot,
+    List<ProductModel> shelfProducts,
+  ) {
+    // Products scheduled for today based on the current shelf.
+    final todayIds = shelfProducts
+        .where(_isScheduledToday)
+        .map((p) => p.id)
+        .toSet();
+
+    // Preserve used/skipped state for products still in the shelf.
+    final usedIds =
+        slot.used.where((id) => todayIds.contains(id)).toList();
+    final skippedIds =
+        slot.skipped.where((id) => todayIds.contains(id)).toList();
+    final actedOn = {...usedIds, ...skippedIds};
+
+    // Keep planned products still in the shelf.
+    final existingPlanned =
+        slot.planned.where((id) => todayIds.contains(id)).toList();
+
+    // Add any newly scheduled products (not yet in any list).
+    final alreadyTracked = {...actedOn, ...existingPlanned};
+    final newPlanned = todayIds
+        .where((id) => !alreadyTracked.contains(id))
+        .toList();
+
+    return slot.copyWith(
+      planned: [...existingPlanned, ...newPlanned],
+      used: usedIds,
+      skipped: skippedIds,
     );
   }
 

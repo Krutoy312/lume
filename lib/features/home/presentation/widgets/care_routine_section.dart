@@ -6,6 +6,7 @@ import '../../../../core/theme/app_colors.dart';
 import '../../../../core/theme/app_text_styles.dart';
 import '../../../shelf/data/models/daily_routine_model.dart';
 import '../../../shelf/presentation/controllers/routine_controller.dart';
+import '../../../shelf/presentation/controllers/shelf_controller.dart';
 import 'care_routine_sheet.dart';
 
 class CareRoutineSection extends ConsumerStatefulWidget {
@@ -34,7 +35,7 @@ class _CareRoutineSectionState extends ConsumerState<CareRoutineSection>
   }
 
   /// Re-check on every app resume — handles the case where the user kept the
-  /// app open overnight. [loadAndSync] is a no-op when the date hasn't changed.
+  /// app open overnight. [loadAndSync] re-syncs with both Firestore and shelf.
   @override
   void didChangeAppLifecycleState(AppLifecycleState state) {
     if (state == AppLifecycleState.resumed) {
@@ -46,6 +47,15 @@ class _CareRoutineSectionState extends ConsumerState<CareRoutineSection>
   Widget build(BuildContext context) {
     final w = MediaQuery.sizeOf(context).width;
     final routineAsync = ref.watch(routineProvider);
+
+    // Watch the shelf so newly added products appear immediately without
+    // requiring an app restart. [syncWithShelf] is a no-op when nothing changed.
+    ref.listen<ShelfState>(shelfProvider, (_, next) {
+      final shelf = next.data;
+      if (shelf != null) {
+        ref.read(routineProvider.notifier).syncWithShelf(shelf);
+      }
+    });
 
     return Padding(
       padding: EdgeInsets.symmetric(horizontal: w * 0.051),

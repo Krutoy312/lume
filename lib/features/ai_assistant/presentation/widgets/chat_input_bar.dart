@@ -1,5 +1,6 @@
 import 'dart:io';
 
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_svg/flutter_svg.dart';
@@ -467,12 +468,19 @@ class _PhotoStrip extends StatelessWidget {
             children: [
               ClipRRect(
                 borderRadius: BorderRadius.circular(10),
-                child: Image.file(
-                  File(photo.path),
-                  width: w * 0.153,
-                  height: w * 0.153,
-                  fit: BoxFit.cover,
-                ),
+                child: kIsWeb
+                    ? Image.network(
+                        photo.path,
+                        width: w * 0.153,
+                        height: w * 0.153,
+                        fit: BoxFit.cover,
+                      )
+                    : Image.file(
+                        File(photo.path),
+                        width: w * 0.153,
+                        height: w * 0.153,
+                        fit: BoxFit.cover,
+                      ),
               ),
               Positioned(
                 top: 4,

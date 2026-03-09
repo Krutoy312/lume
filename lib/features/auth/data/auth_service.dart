@@ -1,8 +1,8 @@
 import 'dart:convert';
-import 'dart:io';
 import 'dart:math';
 
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:flutter/foundation.dart';
 import 'package:crypto/crypto.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:google_sign_in/google_sign_in.dart';
@@ -36,12 +36,20 @@ class AuthService {
 
   /// Opens the Google account picker and exchanges the credential with Firebase.
   ///
-  /// Prerequisites:
-  ///   • SHA-1 fingerprint registered in Firebase Console → Project settings.
-  ///   • `google-services.json` present in `android/app/` (already in project).
+  /// On web: uses Firebase Auth's `signInWithPopup` — no extra HTML meta tag
+  /// or google_sign_in client ID required.
+  /// On native: uses the google_sign_in package (SHA-1 fingerprint +
+  /// google-services.json required for Android).
   Future<void> signInWithGoogle() async {
     try {
-      // Clear any stale Google session before presenting the picker.
+      if (kIsWeb) {
+        // Web: Firebase handles the OAuth popup internally.
+        final credential = await _auth.signInWithPopup(GoogleAuthProvider());
+        if (credential.user == null) throw AuthFailure.cancelled;
+        return;
+      }
+
+      // Native: clear any stale Google session before presenting the picker.
       // This prevents DEVELOPER_ERROR / SecurityException ("Unknown calling
       // package") that occur when a previously-deleted account's OAuth token
       // is still cached locally.
@@ -76,7 +84,9 @@ class AuthService {
   ///
   /// A SHA-256 nonce is used to prevent replay attacks (Firebase requirement).
   Future<void> signInWithApple() async {
-    if (!Platform.isIOS && !Platform.isMacOS) {
+    if (kIsWeb ||
+        (defaultTargetPlatform != TargetPlatform.iOS &&
+            defaultTargetPlatform != TargetPlatform.macOS)) {
       throw AuthFailure.appleNotSupported;
     }
     try {
@@ -114,10 +124,12 @@ class AuthService {
   /// Signs out from Firebase and clears the cached Google account.
   Future<void> signOut() async {
     try {
-      await Future.wait([
-        _auth.signOut(),
-        _googleSignIn.signOut(),
-      ]);
+      await _auth.signOut();
+      // google_sign_in is only initialized on native platforms; skip on web
+      // to avoid an error when no google_sign_in session exists.
+      if (!kIsWeb) {
+        await _googleSignIn.signOut();
+      }
     } catch (_) {
       throw AuthFailure.unknown;
     }

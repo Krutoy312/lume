@@ -1,9 +1,8 @@
-import 'dart:io';
-
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:cloud_functions/cloud_functions.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:firebase_storage/firebase_storage.dart';
+import 'package:image_picker/image_picker.dart';
 
 /// Handles saving daily skin assessments.
 ///
@@ -40,7 +39,8 @@ class AssessmentService {
     final ref = _storage.ref('users/$uid/assessments/$timestamp.jpg');
 
     // Await the full upload task; any Storage error surfaces here.
-    final snapshot = await ref.putFile(File(localPath));
+    final bytes = await XFile(localPath).readAsBytes();
+    final snapshot = await ref.putData(bytes);
     return snapshot.ref.getDownloadURL();
   }
 

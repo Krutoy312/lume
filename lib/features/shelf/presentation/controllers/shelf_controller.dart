@@ -1,10 +1,10 @@
 import 'dart:async';
-import 'dart:io';
 
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:firebase_storage/firebase_storage.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:image_picker/image_picker.dart';
 
 import '../../data/models/product_model.dart';
 import '../../data/models/shelf_model.dart';
@@ -141,7 +141,8 @@ class ShelfNotifier extends StateNotifier<ShelfState> {
       try {
         final ref = FirebaseStorage.instance
             .ref('users/$uid/products/$id.jpg');
-        await ref.putFile(File(photoLocalPath));
+        final bytes = await XFile(photoLocalPath).readAsBytes();
+        await ref.putData(bytes);
         final url = await ref.getDownloadURL();
 
         product = product.copyWith(photoUrl: url);
@@ -196,7 +197,8 @@ class ShelfNotifier extends StateNotifier<ShelfState> {
       try {
         final ref = FirebaseStorage.instance
             .ref('users/$uid/products/${product.id}.jpg');
-        await ref.putFile(File(newPhotoLocalPath));
+        final bytes = await XFile(newPhotoLocalPath).readAsBytes();
+        await ref.putData(bytes);
         final url = await ref.getDownloadURL();
 
         final withPhoto = product.copyWith(photoUrl: url);

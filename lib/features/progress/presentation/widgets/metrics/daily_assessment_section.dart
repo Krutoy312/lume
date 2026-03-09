@@ -1,5 +1,6 @@
 import 'dart:io';
 
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_svg/flutter_svg.dart';
@@ -31,7 +32,9 @@ class _FullscreenPhotoView extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final imageWidget = localPath != null
-        ? Image.file(File(localPath!), fit: BoxFit.contain)
+        ? (kIsWeb
+            ? Image.network(localPath!, fit: BoxFit.contain)
+            : Image.file(File(localPath!), fit: BoxFit.contain))
         : Image.network(
             networkUrl!,
             fit: BoxFit.contain,
@@ -451,12 +454,19 @@ class _DailyAssessmentSectionState
                   child: Hero(
                     tag: 'assessment_photo_hero',
                     child: hasLocalPhoto
-                        ? Image.file(
-                            File(state.photo!.path),
-                            width: double.infinity,
-                            height: w * 0.350,
-                            fit: BoxFit.cover,
-                          )
+                        ? (kIsWeb
+                            ? Image.network(
+                                state.photo!.path,
+                                width: double.infinity,
+                                height: w * 0.350,
+                                fit: BoxFit.cover,
+                              )
+                            : Image.file(
+                                File(state.photo!.path),
+                                width: double.infinity,
+                                height: w * 0.350,
+                                fit: BoxFit.cover,
+                              ))
                         : Image.network(
                             state.photoUrl!,
                             width: double.infinity,

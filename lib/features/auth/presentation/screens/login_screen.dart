@@ -1,5 +1,4 @@
-import 'dart:io';
-
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
@@ -91,7 +90,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
 
                   SizedBox(height: w * 0.031),
 
-                  if (Platform.isIOS)
+                  if (!kIsWeb && defaultTargetPlatform == TargetPlatform.iOS)
                     SocialSignInButton(
                       label: 'Войти через Apple',
                       leadingIcon: AppleLogoIcon(
@@ -107,7 +106,8 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                           : () => _signIn(_AuthMethod.apple),
                     ),
 
-                  if (Platform.isIOS) SizedBox(height: w * 0.031),
+                  if (!kIsWeb && defaultTargetPlatform == TargetPlatform.iOS)
+                    SizedBox(height: w * 0.031),
 
                   const Spacer(flex: 2),
 

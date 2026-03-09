@@ -1,10 +1,10 @@
 import 'dart:convert';
-import 'dart:io';
 
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:firebase_storage/firebase_storage.dart';
 import 'package:http/http.dart' as http;
+import 'package:image_picker/image_picker.dart';
 
 import '../../../../features/shelf/data/models/shelf_model.dart';
 
@@ -119,8 +119,9 @@ class AiChatService {
 
     final timestamp = DateTime.now().millisecondsSinceEpoch;
     final ref = _storage.ref('users/$uid/ai_temp/$timestamp.jpg');
-    final snapshot = await ref.putFile(
-      File(localPath),
+    final bytes = await XFile(localPath).readAsBytes();
+    final snapshot = await ref.putData(
+      bytes,
       SettableMetadata(contentType: 'image/jpeg'),
     );
     final url = await snapshot.ref.getDownloadURL();

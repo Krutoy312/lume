@@ -2,6 +2,7 @@ import 'dart:convert';
 import 'dart:io';
 
 import 'package:firebase_storage/firebase_storage.dart';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:http/http.dart' as http;
@@ -172,7 +173,7 @@ class _AddProductSheetState extends ConsumerState<AddProductSheet> {
 
     try {
       // Upload to Firebase Storage and get a public download URL.
-      final bytes = await File(picked.path).readAsBytes();
+      final bytes = await picked.readAsBytes();
       // ignore: avoid_print
       print('[OCR] Image Size: ${bytes.length} bytes');
 
@@ -469,12 +470,19 @@ class _AddProductSheetState extends ConsumerState<AddProductSheet> {
                       if (_photo != null) ...[
                         ClipRRect(
                           borderRadius: BorderRadius.circular(w * 0.038),
-                          child: Image.file(
-                            File(_photo!.path),
-                            height: w * 0.46,
-                            width: double.infinity,
-                            fit: BoxFit.cover,
-                          ),
+                          child: kIsWeb
+                              ? Image.network(
+                                  _photo!.path,
+                                  height: w * 0.46,
+                                  width: double.infinity,
+                                  fit: BoxFit.cover,
+                                )
+                              : Image.file(
+                                  File(_photo!.path),
+                                  height: w * 0.46,
+                                  width: double.infinity,
+                                  fit: BoxFit.cover,
+                                ),
                         ),
                         SizedBox(height: w * 0.031),
                       ] else if (widget.initialProduct?.photoUrl != null) ...[

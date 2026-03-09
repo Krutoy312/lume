@@ -126,6 +126,9 @@ class ChatNotifier extends StateNotifier<ChatState> {
 
     final trimmedText = text.trim();
 
+    // Capture photo before clearing state.
+    final pendingPhoto = state.attachedPhoto;
+
     // Build the user-facing message text.
     final userDisplayText = _userDisplayText(trimmedText);
 
@@ -140,6 +143,7 @@ class ChatNotifier extends StateNotifier<ChatState> {
       messages: [...state.messages, userMsg],
       isLoading: true,
       clearError: true,
+      clearPhoto: true, // remove photo preview immediately on send
     );
 
     try {
@@ -154,7 +158,7 @@ class ChatNotifier extends StateNotifier<ChatState> {
       switch (state.selectedMode) {
         case ChatMode.skinPhoto:
           final url = await AiChatService.uploadTempImage(
-            state.attachedPhoto!.path,
+            pendingPhoto!.path,
           );
           reply = await AiChatService.sendSkinPhotoAnalysis(
             imageUrl: url,
@@ -164,7 +168,7 @@ class ChatNotifier extends StateNotifier<ChatState> {
 
         case ChatMode.productPhoto:
           final url = await AiChatService.uploadTempImage(
-            state.attachedPhoto!.path,
+            pendingPhoto!.path,
           );
           reply = await AiChatService.sendProductPhotoAnalysis(
             imageUrl: url,
@@ -181,9 +185,9 @@ class ChatNotifier extends StateNotifier<ChatState> {
         case ChatMode.none:
           // Upload photo if one is attached (qwen3 supports multimodal).
           String? imageUrl;
-          if (state.attachedPhoto != null) {
+          if (pendingPhoto != null) {
             imageUrl = await AiChatService.uploadTempImage(
-              state.attachedPhoto!.path,
+              pendingPhoto.path,
             );
           }
           // Build conversation history from the existing messages.
@@ -210,7 +214,6 @@ class ChatNotifier extends StateNotifier<ChatState> {
       state = state.copyWith(
         messages: [...state.messages, aiMsg],
         isLoading: false,
-        clearPhoto: true, // clear after successful send in analysis modes
       );
     } catch (e) {
       state = state.copyWith(

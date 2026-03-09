@@ -1,12 +1,13 @@
 import 'dart:io';
 
+import 'package:flutter_dotenv/flutter_dotenv.dart';
 import 'package:http/http.dart' as http;
 import 'package:path_provider/path_provider.dart';
 import 'package:record/record.dart';
 
 /// Records audio and transcribes it via the Alem AI speech-to-text API.
 class SpeechToTextService {
-  static const _apiKey = 'sk-a3l9z8wf9BnGnPllZZKjHQ';
+  static String get _apiKey => dotenv.env['ALEM_STT_KEY']!;
   static const _endpoint = 'https://llm.alem.ai/v1/audio/transcriptions';
 
   final AudioRecorder _recorder = AudioRecorder();

@@ -68,6 +68,9 @@ dependencies:
   sign_in_with_apple: ^6.1.4
   crypto: ^3.0.3
 
+  # Environment variables
+  flutter_dotenv: ^5.2.1
+
 dev_dependencies:
   flutter_test:
     sdk: flutter
@@ -85,6 +88,7 @@ dev_dependencies:
 # The following section is specific to Flutter packages.
 flutter:
   assets:
+    - .env
     - assets/icons/
     - assets/images/
 

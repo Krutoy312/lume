@@ -4,6 +4,7 @@ import 'dart:io';
 import 'package:firebase_storage/firebase_storage.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter_dotenv/flutter_dotenv.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:http/http.dart' as http;
 import 'package:image_picker/image_picker.dart';
@@ -12,10 +13,9 @@ import '../../../../core/theme/app_colors.dart';
 import '../../data/models/product_model.dart';
 import '../controllers/shelf_controller.dart';
 
-// TODO(security): Replace with a server-side proxy or --dart-define injection.
-// Never commit a real production token to source control.
-const _kOcrApiKey = 'sk-jv6cLsjBm2OddTRcetEi2Q';
-const _kGemmmaApiKey = 'sk-9vEjfsCPLOKZ_Cqfkel6vA';
+String get _kQwen3Key => dotenv.env['ALEM_AI_KEY']!;
+const _kQwen3Model = 'qwen3';
+const _kBaseUrl = 'https://llm.alem.ai/v1/chat/completions';
 
 /// Modal bottom sheet for adding a new product or editing an existing one.
 ///
@@ -191,121 +191,149 @@ class _AddProductSheetState extends ConsumerState<AddProductSheet> {
       // ignore: avoid_print
       print('[OCR] Public URL: $imageUrl');
 
-      // Step 1: Extract raw text from image via deepseek-ocr.
-      final step1Body = jsonEncode({
-        'model': 'deepseek-ocr',
+      // Analyze image directly via qwen3 multimodal.
+      const prompt = '''Ты анализируешь фотографию косметического средства.
+
+Твоя задача:
+
+1. Определи название продукта.
+2. Определи категорию продукта.
+
+
+
+ПРАВИЛА ОПРЕДЕЛЕНИЯ НАЗВАНИЯ
+
+Название должно содержать только:
+
+бренд + основное название продукта.
+
+Не включай:
+
+описания
+маркетинговые слоганы
+длинные фразы
+ингредиенты
+технические надписи
+текст с обратной стороны упаковки
+объем продукта (например 50ml)
+
+Название должно быть коротким и содержать максимум 6 слов.
+
+Если на фото видно много текста — выбери только основной продуктовый заголовок.
+
+Если название нельзя прочитать уверенно — напиши:
+
+Name: Unknown
+
+Никогда не придумывай название продукта.
+
+
+
+КАТЕГОРИИ ПРОДУКТА
+
+Определи категорию строго из этого списка:
+
+Cleansing  
+Serum  
+SPF  
+Toner  
+Actives  
+Mask  
+Moisturizing
+
+
+
+ПРАВИЛА ОПРЕДЕЛЕНИЯ КАТЕГОРИИ
+
+Cleansing — гели, пенки, cleanser  
+Serum — serum, essence, ampoule  
+SPF — sunscreen, sun cream, fluid SPF  
+Toner — toner, lotion, tonic  
+Actives — retinol, acids, vitamin C treatments  
+Mask — mask, clay mask  
+Moisturizing — creams, moisturizing fluids, moisturizers
+
+
+
+ЗАПРЕЩЕННЫЕ ТИПЫ ПРОДУКТОВ
+
+Игнорируй и не классифицируй следующие продукты:
+
+парфюм и духи  
+hair care (шампуни, кондиционеры, маски для волос)  
+makeup (тональный крем, пудра, тушь, помада)  
+body care (кремы для тела, лосьоны для тела)  
+свечи  
+мыло для рук  
+бытовые средства  
+любые не косметические объекты
+
+
+
+Если продукт относится к одному из запрещённых типов — напиши:
+
+Name: Unknown  
+Category: Unknown
+
+
+
+Если категория не определяется уверенно — напиши:
+
+Category: Unknown
+
+
+
+ФОРМАТ ОТВЕТА
+
+Ответ должен быть строго в формате:
+
+Name: <product name>
+Category: <one category from the list>''';
+
+      final body = jsonEncode({
+        'model': _kQwen3Model,
         'messages': [
           {
             'role': 'user',
             'content': [
-              {'type': 'text', 'text': 'Recognize the text in the image.'},
-              {
-                'type': 'image_url',
-                'image_url': {'url': imageUrl},
-              },
+              {'type': 'image_url', 'image_url': imageUrl},
+              {'type': 'text', 'text': prompt},
             ],
           },
         ],
       });
 
-      final res1 = await http
+      final res = await http
           .post(
-            Uri.parse('https://llm.alem.ai/v1/chat/completions'),
+            Uri.parse(_kBaseUrl),
             headers: {
-              'Authorization': 'Bearer $_kOcrApiKey',
+              'Authorization': 'Bearer $_kQwen3Key',
               'Content-Type': 'application/json',
             },
-            body: step1Body,
+            body: body,
           )
           .timeout(const Duration(seconds: 60));
 
       // ignore: avoid_print
-      print('[OCR] Step1 Status: ${res1.statusCode}');
+      print('[OCR] Status: ${res.statusCode}');
+      // ignore: avoid_print
+      print('[OCR] Raw Output: ${res.body}');
 
-      if (res1.statusCode != 200 || res1.body.isEmpty) {
+      if (res.statusCode != 200 || res.body.isEmpty) {
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(content: Text('Ошибка OCR: ${res1.statusCode}')),
+            SnackBar(content: Text('Ошибка анализа: ${res.statusCode}')),
           );
         }
         return;
       }
 
-      final data1 = jsonDecode(res1.body) as Map<String, dynamic>;
-      final extractedText =
-          (data1['choices']?[0]?['message']?['content'] ?? '') as String;
+      final data = jsonDecode(res.body) as Map<String, dynamic>;
       // ignore: avoid_print
-      print('[OCR] Step1 Text: $extractedText');
-
-      if (extractedText.isEmpty) {
-        if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(content: Text('Не удалось распознать текст')),
-          );
-        }
-        return;
-      }
-
-      // Step 2: Analyze extracted text via gemma3.
-      const analysisPrompt =
-          'You analyze a photo of a cosmetic product. Your task: '
-          '1. Determine the product name accurately. '
-          '2. Determine the product category strictly from this list: '
-          'Cleansing, Serum, SPF, Toner, Actives, Mask, Moisturizing.\n\n'
-          'Category determination rules: '
-          'Cleansing (gels, foams, cleanser), '
-          'Serum (serum, essence, ampoule), '
-          'SPF (sunscreen, fluids), '
-          'Toner (toner, lotion, tonic), '
-          'Actives (retinol, acids, vitamin C), '
-          'Mask (mask, clay mask), '
-          'Moisturizing (creams, fluids, moisturizers).\n\n'
-          'The response must be strictly in the format:\n'
-          'Name: <product name>\n'
-          'Category: <one category from the list>';
-
-      final step2Body = jsonEncode({
-        'model': 'gemma3',
-        'messages': [
-          {
-            'role': 'user',
-            'content':
-                'Text from the product: $extractedText\n\n$analysisPrompt',
-          },
-        ],
-      });
-
-      final res2 = await http
-          .post(
-            Uri.parse('https://llm.alem.ai/v1/chat/completions'),
-            headers: {
-              'Authorization': 'Bearer $_kGemmmaApiKey',
-              'Content-Type': 'application/json',
-            },
-            body: step2Body,
-          )
-          .timeout(const Duration(seconds: 60));
-
-      // ignore: avoid_print
-      print('[OCR] Step2 Status: ${res2.statusCode}');
-      // ignore: avoid_print
-      print('[OCR] Step2 Raw Output: ${res2.body}');
-
-      if (res2.statusCode != 200 || res2.body.isEmpty) {
-        if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(content: Text('Ошибка анализа: ${res2.statusCode}')),
-          );
-        }
-        return;
-      }
-
-      final data2 = jsonDecode(res2.body) as Map<String, dynamic>;
-      // ignore: avoid_print
-      print('[OCR] Step2 Tokens: ${data2['usage']?['total_tokens']}');
+      print('[OCR] Tokens: ${data['usage']?['total_tokens']}');
 
       final content =
-          (data2['choices']?[0]?['message']?['content'] ?? '') as String;
+          (data['choices']?[0]?['message']?['content'] ?? '') as String;
 
       if (content.isNotEmpty && mounted) _applyOcrResult(content);
     } catch (e) {
@@ -407,7 +435,8 @@ class _AddProductSheetState extends ConsumerState<AddProductSheet> {
       behavior: HitTestBehavior.translucent,
       onPointerDown: (event) {
         _dragStartY = event.position.dy;
-        _canDismiss = !_scrollController.hasClients ||
+        _canDismiss =
+            !_scrollController.hasClients ||
             _scrollController.position.pixels <= 0;
       },
       onPointerMove: (event) {
@@ -423,177 +452,183 @@ class _AddProductSheetState extends ConsumerState<AddProductSheet> {
           if (didPop) _save();
         },
         child: Container(
-        decoration: BoxDecoration(
-          color: AppColors.surface,
-          borderRadius: BorderRadius.vertical(top: Radius.circular(w * 0.061)),
-        ),
-        child: SingleChildScrollView(
-          controller: _scrollController,
-          physics: const ClampingScrollPhysics(),
-          padding: EdgeInsets.only(
-            left: w * 0.051,
-            right: w * 0.051,
-            top: w * 0.031,
-            bottom: w * 0.051 + bottomInset + systemBottom,
+          decoration: BoxDecoration(
+            color: AppColors.surface,
+            borderRadius: BorderRadius.vertical(
+              top: Radius.circular(w * 0.061),
+            ),
           ),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              // ── Drag handle ─────────────────────────────────────────────────
-              Center(
-                child: Container(
-                  width: w * 0.102,
-                  height: 4,
-                  decoration: BoxDecoration(
-                    color: AppColors.primaryLighter.withValues(alpha: 0.6),
-                    borderRadius: BorderRadius.circular(2),
-                  ),
-                ),
-              ),
-              SizedBox(height: w * 0.051),
-
-              // ── Title row ───────────────────────────────────────────────────
-              Row(
-                crossAxisAlignment: CrossAxisAlignment.center,
-                children: [
-                  Expanded(
-                    child: Text('Добавьте средство', style: _titleStyle),
-                  ),
-                  SizedBox(width: w * 0.020),
-                  _FillByPhotoButton(
-                    w: w,
-                    onTap: _ocrLoading ? null : _fillByPhoto,
-                    isLoading: _ocrLoading,
-                  ),
-                  SizedBox(width: w * 0.020),
-                  GestureDetector(
-                    onTap: _discard,
-                    behavior: HitTestBehavior.opaque,
-                    child: Icon(
-                      Icons.close,
-                      size: w * 0.051,
-                      color: AppColors.primaryMedium,
+          child: SingleChildScrollView(
+            controller: _scrollController,
+            physics: const ClampingScrollPhysics(),
+            padding: EdgeInsets.only(
+              left: w * 0.051,
+              right: w * 0.051,
+              top: w * 0.031,
+              bottom: w * 0.051 + bottomInset + systemBottom,
+            ),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                // ── Drag handle ─────────────────────────────────────────────────
+                Center(
+                  child: Container(
+                    width: w * 0.102,
+                    height: 4,
+                    decoration: BoxDecoration(
+                      color: AppColors.primaryLighter.withValues(alpha: 0.6),
+                      borderRadius: BorderRadius.circular(2),
                     ),
                   ),
-                ],
-              ),
-              SizedBox(height: w * 0.051),
+                ),
+                SizedBox(height: w * 0.051),
 
-              // ── Form body — disabled while OCR is running ────────────────
-              AbsorbPointer(
-                absorbing: _ocrLoading,
-                child: AnimatedOpacity(
-                  opacity: _ocrLoading ? 0.45 : 1.0,
-                  duration: const Duration(milliseconds: 200),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      // ── Photo preview ──────────────────────────────────────
-                      if (_photo != null) ...[
-                        ClipRRect(
-                          borderRadius: BorderRadius.circular(w * 0.038),
-                          child: kIsWeb
-                              ? Image.network(
-                                  _photo!.path,
-                                  height: w * 0.46,
-                                  width: double.infinity,
-                                  fit: BoxFit.cover,
-                                )
-                              : Image.file(
-                                  File(_photo!.path),
-                                  height: w * 0.46,
-                                  width: double.infinity,
-                                  fit: BoxFit.cover,
-                                ),
+                // ── Title row ───────────────────────────────────────────────────
+                Row(
+                  crossAxisAlignment: CrossAxisAlignment.center,
+                  children: [
+                    Expanded(
+                      child: Text('Добавьте средство', style: _titleStyle),
+                    ),
+                    SizedBox(width: w * 0.020),
+                    _FillByPhotoButton(
+                      w: w,
+                      onTap: _ocrLoading ? null : _fillByPhoto,
+                      isLoading: _ocrLoading,
+                    ),
+                    SizedBox(width: w * 0.020),
+                    GestureDetector(
+                      onTap: _discard,
+                      behavior: HitTestBehavior.opaque,
+                      child: Icon(
+                        Icons.close,
+                        size: w * 0.051,
+                        color: AppColors.primaryMedium,
+                      ),
+                    ),
+                  ],
+                ),
+                SizedBox(height: w * 0.051),
+
+                // ── Form body — disabled while OCR is running ────────────────
+                AbsorbPointer(
+                  absorbing: _ocrLoading,
+                  child: AnimatedOpacity(
+                    opacity: _ocrLoading ? 0.45 : 1.0,
+                    duration: const Duration(milliseconds: 200),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        // ── Photo preview ──────────────────────────────────────
+                        if (_photo != null) ...[
+                          ClipRRect(
+                            borderRadius: BorderRadius.circular(w * 0.038),
+                            child: kIsWeb
+                                ? Image.network(
+                                    _photo!.path,
+                                    height: w * 0.46,
+                                    width: double.infinity,
+                                    fit: BoxFit.cover,
+                                  )
+                                : Image.file(
+                                    File(_photo!.path),
+                                    height: w * 0.46,
+                                    width: double.infinity,
+                                    fit: BoxFit.cover,
+                                  ),
+                          ),
+                          SizedBox(height: w * 0.031),
+                        ] else if (widget.initialProduct?.photoUrl != null) ...[
+                          ClipRRect(
+                            borderRadius: BorderRadius.circular(w * 0.038),
+                            child: Image.network(
+                              widget.initialProduct!.photoUrl!,
+                              height: w * 0.46,
+                              width: double.infinity,
+                              fit: BoxFit.cover,
+                              errorBuilder: (_, __, ___) =>
+                                  const SizedBox.shrink(),
+                            ),
+                          ),
+                          SizedBox(height: w * 0.031),
+                        ],
+
+                        // ── Name field ─────────────────────────────────────────
+                        _InputField(
+                          controller: _nameController,
+                          label: 'Название',
+                          hint: 'Введите название...',
+                        ),
+                        SizedBox(height: w * 0.041),
+
+                        // ── Category chips ─────────────────────────────────────
+                        Text('Категория', style: _scheduleHeaderStyle),
+                        SizedBox(height: w * 0.020),
+                        _CategoryChips(
+                          categories: _categories,
+                          selected: _selectedCategory,
+                          onSelect: (cat) => setState(
+                            () => _selectedCategory = _selectedCategory == cat
+                                ? null
+                                : cat,
+                          ),
+                          w: w,
+                        ),
+                        SizedBox(height: w * 0.041),
+
+                        // ── Schedule section ───────────────────────────────────
+                        Text(
+                          'График использования',
+                          style: _scheduleHeaderStyle,
                         ),
                         SizedBox(height: w * 0.031),
-                      ] else if (widget.initialProduct?.photoUrl != null) ...[
-                        ClipRRect(
-                          borderRadius: BorderRadius.circular(w * 0.038),
-                          child: Image.network(
-                            widget.initialProduct!.photoUrl!,
-                            height: w * 0.46,
-                            width: double.infinity,
-                            fit: BoxFit.cover,
-                            errorBuilder: (_, __, ___) =>
-                                const SizedBox.shrink(),
+                        _DaySelector(
+                          selectedDays: _selectedDays,
+                          onToggle: (i) => setState(
+                            () => _selectedDays[i] = !_selectedDays[i],
                           ),
                         ),
-                        SizedBox(height: w * 0.031),
-                      ],
+                        SizedBox(height: w * 0.041),
 
-                      // ── Name field ─────────────────────────────────────────
-                      _InputField(
-                        controller: _nameController,
-                        label: 'Название',
-                        hint: 'Введите название...',
-                      ),
-                      SizedBox(height: w * 0.041),
-
-                      // ── Category chips ─────────────────────────────────────
-                      Text('Категория', style: _scheduleHeaderStyle),
-                      SizedBox(height: w * 0.020),
-                      _CategoryChips(
-                        categories: _categories,
-                        selected: _selectedCategory,
-                        onSelect: (cat) => setState(
-                          () => _selectedCategory = _selectedCategory == cat
-                              ? null
-                              : cat,
-                        ),
-                        w: w,
-                      ),
-                      SizedBox(height: w * 0.041),
-
-                      // ── Schedule section ───────────────────────────────────
-                      Text('График использования', style: _scheduleHeaderStyle),
-                      SizedBox(height: w * 0.031),
-                      _DaySelector(
-                        selectedDays: _selectedDays,
-                        onToggle: (i) => setState(
-                          () => _selectedDays[i] = !_selectedDays[i],
-                        ),
-                      ),
-                      SizedBox(height: w * 0.041),
-
-                      // ── Add photo button ───────────────────────────────────
-                      GestureDetector(
-                        onTap: _pickPhoto,
-                        behavior: HitTestBehavior.opaque,
-                        child: Row(
-                          mainAxisSize: MainAxisSize.min,
-                          children: [
-                            Icon(
-                              Icons.add,
-                              size: w * 0.038,
-                              color: AppColors.primaryMedium,
-                            ),
-                            SizedBox(width: w * 0.015),
-                            Text(
-                              (_photo != null ||
-                                      widget.initialProduct?.photoUrl != null)
-                                  ? 'Изменить фото продукта'
-                                  : 'Добавить фото продукта',
-                              style: TextStyle(
-                                fontFamily: 'SF Pro',
-                                fontSize: 12,
-                                fontWeight: FontWeight.w500,
+                        // ── Add photo button ───────────────────────────────────
+                        GestureDetector(
+                          onTap: _pickPhoto,
+                          behavior: HitTestBehavior.opaque,
+                          child: Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              Icon(
+                                Icons.add,
+                                size: w * 0.038,
                                 color: AppColors.primaryMedium,
-                                letterSpacing: -0.45,
                               ),
-                            ),
-                          ],
+                              SizedBox(width: w * 0.015),
+                              Text(
+                                (_photo != null ||
+                                        widget.initialProduct?.photoUrl != null)
+                                    ? 'Изменить фото продукта'
+                                    : 'Добавить фото продукта',
+                                style: TextStyle(
+                                  fontFamily: 'SF Pro',
+                                  fontSize: 12,
+                                  fontWeight: FontWeight.w500,
+                                  color: AppColors.primaryMedium,
+                                  letterSpacing: -0.45,
+                                ),
+                              ),
+                            ],
+                          ),
                         ),
-                      ),
-                    ],
+                      ],
+                    ),
                   ),
                 ),
-              ),
-            ],
+              ],
+            ),
           ),
         ),
       ),
-    ));
+    );
   }
 }
 

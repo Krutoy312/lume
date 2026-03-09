@@ -3,6 +3,7 @@
 import 'package:firebase_core/firebase_core.dart' show FirebaseOptions;
 import 'package:flutter/foundation.dart'
     show defaultTargetPlatform, kIsWeb, TargetPlatform;
+import 'package:flutter_dotenv/flutter_dotenv.dart';
 
 /// Default [FirebaseOptions] for use with your Firebase apps.
 ///
@@ -46,31 +47,30 @@ class DefaultFirebaseOptions {
     }
   }
 
-  static const FirebaseOptions web = FirebaseOptions(
-    apiKey: 'AIzaSyAnRotOuBhYc1QhcPvmnLCxJZMXu_TiWKQ',
-    appId: '1:267681321898:web:6318e6e12154dac12991d3',
-    messagingSenderId: '267681321898',
-    projectId: 'skin-care-4ae04',
-    authDomain: 'skin-care-4ae04.firebaseapp.com',
-    storageBucket: 'skin-care-4ae04.firebasestorage.app',
-    measurementId: 'G-M7MQB262P2',
+  static FirebaseOptions get web => FirebaseOptions(
+    apiKey: dotenv.env['FIREBASE_WEB_API_KEY']!,
+    appId: dotenv.env['FIREBASE_WEB_APP_ID']!,
+    messagingSenderId: dotenv.env['FIREBASE_WEB_MESSAGING_SENDER_ID']!,
+    projectId: dotenv.env['FIREBASE_WEB_PROJECT_ID']!,
+    authDomain: dotenv.env['FIREBASE_WEB_AUTH_DOMAIN']!,
+    storageBucket: dotenv.env['FIREBASE_WEB_STORAGE_BUCKET']!,
+    measurementId: dotenv.env['FIREBASE_WEB_MEASUREMENT_ID']!,
   );
 
-  static const FirebaseOptions android = FirebaseOptions(
-    apiKey: 'AIzaSyB26WMShKNniUNzDK3rhuB3mWw7LQ4AXrY',
-    appId: '1:267681321898:android:8e99d504f2fa8d2f2991d3',
-    messagingSenderId: '267681321898',
-    projectId: 'skin-care-4ae04',
-    storageBucket: 'skin-care-4ae04.firebasestorage.app',
+  static FirebaseOptions get android => FirebaseOptions(
+    apiKey: dotenv.env['FIREBASE_ANDROID_API_KEY']!,
+    appId: dotenv.env['FIREBASE_ANDROID_APP_ID']!,
+    messagingSenderId: dotenv.env['FIREBASE_ANDROID_MESSAGING_SENDER_ID']!,
+    projectId: dotenv.env['FIREBASE_ANDROID_PROJECT_ID']!,
+    storageBucket: dotenv.env['FIREBASE_ANDROID_STORAGE_BUCKET']!,
   );
 
-  static const FirebaseOptions ios = FirebaseOptions(
-    apiKey: 'AIzaSyAGAsSKAec3OU18UxUu6YzN45KMWKIBVmo',
-    appId: '1:267681321898:ios:527c51bee7716a822991d3',
-    messagingSenderId: '267681321898',
-    projectId: 'skin-care-4ae04',
-    storageBucket: 'skin-care-4ae04.firebasestorage.app',
-    iosBundleId: 'com.skincare.skinCareApp',
+  static FirebaseOptions get ios => FirebaseOptions(
+    apiKey: dotenv.env['FIREBASE_IOS_API_KEY']!,
+    appId: dotenv.env['FIREBASE_IOS_APP_ID']!,
+    messagingSenderId: dotenv.env['FIREBASE_IOS_MESSAGING_SENDER_ID']!,
+    projectId: dotenv.env['FIREBASE_IOS_PROJECT_ID']!,
+    storageBucket: dotenv.env['FIREBASE_IOS_STORAGE_BUCKET']!,
+    iosBundleId: dotenv.env['FIREBASE_IOS_BUNDLE_ID']!,
   );
-
 }

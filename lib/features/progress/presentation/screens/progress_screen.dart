@@ -29,10 +29,7 @@ class ProgressScreen extends StatelessWidget {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Text(
-                'Прогресс',
-                style: AppTextStyles.displayMedium,
-              ),
+              Text('Прогресс', style: AppTextStyles.displayMedium),
               SizedBox(height: w * 0.061),
 
               // ── Daily skin-state assessment ────────────────────────────
@@ -49,10 +46,8 @@ class ProgressScreen extends StatelessWidget {
               const CalendarView(),
 
               // ── [DEV] Mock data button — debug builds only ─────────────
-              if (kDebugMode) ...[
-                SizedBox(height: w * 0.051),
-                const _MockDataButton(),
-              ],
+              SizedBox(height: w * 0.051),
+              const _MockDataButton(),
 
               SizedBox(height: w * 0.030),
             ],
@@ -145,8 +140,8 @@ class _MockDataButtonState extends State<_MockDataButton> {
           _done
               ? '90 days generated'
               : _loading
-                  ? 'Generating…'
-                  : '[DEV] Generate 90-day mock data',
+              ? 'Generating…'
+              : '[DEV] Generate 90-day mock data',
           style: const TextStyle(
             fontFamily: 'SF Pro',
             fontSize: 13,

@@ -32,7 +32,8 @@
       "mcp__ide__getDiagnostics",
       "Bash(\"/c/Android Studio/jbr/bin/keytool\":*)",
       "mcp__figma__get_screenshot",
-      "Bash(xargs grep:*)"
+      "Bash(xargs grep:*)",
+      "Bash(git remote:*)"
     ]
   }
 }

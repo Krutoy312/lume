@@ -99,24 +99,7 @@ class _HomeBody extends StatelessWidget {
               // Greeting
               Padding(
                 padding: EdgeInsets.fromLTRB(hPad, w * 0.084, hPad, 0),
-                child: RichText(
-                  text: TextSpan(
-                    children: [
-                      TextSpan(
-                        text: '👋 Привет, ',
-                        style: AppTextStyles.displayMedium.copyWith(
-                          fontWeight: FontWeight.w400,
-                        ),
-                      ),
-                      TextSpan(
-                        text: 'Caddser!',
-                        style: AppTextStyles.displayMedium.copyWith(
-                          fontWeight: FontWeight.w700,
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
+                child: const _Greeting(),
               ),
               SizedBox(height: w * 0.061),
 
@@ -150,6 +133,41 @@ class _HomeBody extends StatelessWidget {
             ],
           ),
         ),
+      ),
+    );
+  }
+}
+
+// ── Greeting ──────────────────────────────────────────────────────────────────
+
+class _Greeting extends ConsumerWidget {
+  const _Greeting();
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final docAsync = ref.watch(userDocumentProvider);
+    final name = docAsync.when(
+      data: (snap) => (snap?.data()?['name'] as String?)?.trim(),
+      loading: () => null,
+      error: (_, __) => null,
+    );
+
+    return RichText(
+      text: TextSpan(
+        children: [
+          TextSpan(
+            text: 'Привет, ',
+            style: AppTextStyles.displayMedium.copyWith(
+              fontWeight: FontWeight.w400,
+            ),
+          ),
+          TextSpan(
+            text: name != null && name.isNotEmpty ? '$name!' : 'друг!',
+            style: AppTextStyles.displayMedium.copyWith(
+              fontWeight: FontWeight.w700,
+            ),
+          ),
+        ],
       ),
     );
   }

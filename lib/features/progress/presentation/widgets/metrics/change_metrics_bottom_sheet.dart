@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 
@@ -64,6 +66,8 @@ class ChangeMetricsBottomSheet extends StatefulWidget {
 
 class _ChangeMetricsBottomSheetState extends State<ChangeMetricsBottomSheet> {
   late Set<String> _selected;
+  bool _showWarning = false;
+  Timer? _warningTimer;
 
   @override
   void initState() {
@@ -71,19 +75,21 @@ class _ChangeMetricsBottomSheetState extends State<ChangeMetricsBottomSheet> {
     _selected = Set.from(widget.initialTracked);
   }
 
+  @override
+  void dispose() {
+    _warningTimer?.cancel();
+    super.dispose();
+  }
+
   void _toggle(String key) {
     if (_selected.contains(key)) {
-      // Block removal of mandatory metrics.
+      // Block removal of mandatory metrics — show inline warning.
       if (widget.mandatoryMetrics.contains(key)) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text(
-              'Этот показатель обязателен для вашей цели и не может быть отключён.',
-            ),
-            behavior: SnackBarBehavior.floating,
-            duration: Duration(seconds: 3),
-          ),
-        );
+        _warningTimer?.cancel();
+        setState(() => _showWarning = true);
+        _warningTimer = Timer(const Duration(seconds: 3), () {
+          if (mounted) setState(() => _showWarning = false);
+        });
         return;
       }
       if (_selected.length <= 1) return; // always keep at least one metric
@@ -122,6 +128,63 @@ class _ChangeMetricsBottomSheetState extends State<ChangeMetricsBottomSheet> {
                     borderRadius: BorderRadius.circular(2),
                   ),
                 ),
+              ),
+
+              // ── Mandatory-metric warning banner ─────────────────────────────
+              AnimatedSwitcher(
+                duration: const Duration(milliseconds: 220),
+                transitionBuilder: (child, animation) => SizeTransition(
+                  sizeFactor: animation,
+                  axisAlignment: -1,
+                  child: FadeTransition(opacity: animation, child: child),
+                ),
+                child: _showWarning
+                    ? Padding(
+                        key: const ValueKey('warning'),
+                        padding: EdgeInsets.fromLTRB(
+                          w * 0.051,
+                          w * 0.025,
+                          w * 0.051,
+                          0,
+                        ),
+                        child: Container(
+                          padding: EdgeInsets.symmetric(
+                            horizontal: w * 0.041,
+                            vertical: w * 0.028,
+                          ),
+                          decoration: BoxDecoration(
+                            color: AppColors.golden.withValues(alpha: 0.10),
+                            borderRadius: BorderRadius.circular(w * 0.025),
+                            border: Border.all(
+                              color: AppColors.golden.withValues(alpha: 0.35),
+                              width: 1,
+                            ),
+                          ),
+                          child: Row(
+                            children: [
+                              Icon(
+                                Icons.lock_outline_rounded,
+                                size: w * 0.041,
+                                color: AppColors.golden,
+                              ),
+                              SizedBox(width: w * 0.025),
+                              Expanded(
+                                child: Text(
+                                  'Этот показатель обязателен для вашей цели и не может быть отключён.',
+                                  style: TextStyle(
+                                    fontFamily: 'SF Pro',
+                                    fontSize: w * 0.030,
+                                    fontWeight: FontWeight.w400,
+                                    color: AppColors.amber,
+                                    height: 1.4,
+                                  ),
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      )
+                    : const SizedBox.shrink(key: ValueKey('empty')),
               ),
 
               SizedBox(height: w * 0.038),

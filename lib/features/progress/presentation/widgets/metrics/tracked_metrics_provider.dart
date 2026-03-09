@@ -1,3 +1,5 @@
+import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:skin_care_app/features/auth/presentation/providers/auth_provider.dart';
 
@@ -51,6 +53,39 @@ final trackedMetricsProvider = Provider<List<String>>((ref) {
     loading: () => kDefaultTrackedKeys,
     error: (_, __) => kDefaultTrackedKeys,
   );
+});
+
+/// Returns the metric maps of the [_kAssessmentLimit] most recent assessments,
+/// ordered newest-first.
+///
+/// Each element is a `Map<String, int>` of metric key → value (0–10).
+/// The list may have 0, 1, or 2 elements depending on how many assessments
+/// the user has submitted.
+///
+/// Index 0 = most recent, index 1 = second most recent.
+const _kAssessmentLimit = 2;
+
+final recentAssessmentMetricsProvider =
+    FutureProvider.autoDispose<List<Map<String, int>>>((ref) async {
+  // Re-fetch when the user document changes (e.g. after a new submission).
+  ref.watch(userDocumentProvider);
+
+  final uid = FirebaseAuth.instance.currentUser?.uid;
+  if (uid == null) return [];
+
+  final snap = await FirebaseFirestore.instance
+      .collection('users')
+      .doc(uid)
+      .collection('daily_assessments')
+      .orderBy(FieldPath.documentId, descending: true)
+      .limit(_kAssessmentLimit)
+      .get();
+
+  return snap.docs.map((doc) {
+    final raw =
+        (doc.data()['metrics'] as Map<String, dynamic>?) ?? {};
+    return raw.map((k, v) => MapEntry(k, (v as num).toInt()));
+  }).toList();
 });
 
 /// The set of metric keys that are mandatory for the user's current goal.

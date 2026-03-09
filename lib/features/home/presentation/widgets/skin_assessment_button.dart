@@ -1,18 +1,23 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_svg/flutter_svg.dart';
+
+import '../../../../core/providers/shell_tab_provider.dart';
 import '../../../../core/theme/app_colors.dart';
 import '../../../../core/theme/app_text_styles.dart';
 
-class SkinAssessmentButton extends StatelessWidget {
+class SkinAssessmentButton extends ConsumerWidget {
   const SkinAssessmentButton({super.key});
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
     final w = MediaQuery.sizeOf(context).width;
     final hPad = w * 0.051;
 
     return GestureDetector(
-      onTap: () {},
+      onTap: () {
+        ref.read(shellTabProvider.notifier).state = 1; // Progress tab
+      },
       child: Container(
         margin: EdgeInsets.symmetric(horizontal: hPad),
         height: w * 0.244,

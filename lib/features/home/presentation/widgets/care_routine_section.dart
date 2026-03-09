@@ -15,14 +15,31 @@ class CareRoutineSection extends ConsumerStatefulWidget {
   ConsumerState<CareRoutineSection> createState() => _CareRoutineSectionState();
 }
 
-class _CareRoutineSectionState extends ConsumerState<CareRoutineSection> {
+class _CareRoutineSectionState extends ConsumerState<CareRoutineSection>
+    with WidgetsBindingObserver {
   @override
   void initState() {
     super.initState();
+    WidgetsBinding.instance.addObserver(this);
     // Trigger load after the first frame so ref is available.
     WidgetsBinding.instance.addPostFrameCallback((_) {
       ref.read(routineProvider.notifier).loadAndSync();
     });
+  }
+
+  @override
+  void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
+    super.dispose();
+  }
+
+  /// Re-check on every app resume — handles the case where the user kept the
+  /// app open overnight. [loadAndSync] is a no-op when the date hasn't changed.
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state == AppLifecycleState.resumed) {
+      ref.read(routineProvider.notifier).loadAndSync();
+    }
   }
 
   @override

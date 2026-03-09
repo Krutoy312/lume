@@ -1,13 +1,17 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_svg/flutter_svg.dart';
+
+import '../../../../core/providers/shell_tab_provider.dart';
 import '../../../../core/theme/app_colors.dart';
 import '../../../../core/theme/app_text_styles.dart';
+import '../../../ai_assistant/presentation/controllers/chat_controller.dart';
 
-class QuickActions extends StatelessWidget {
+class QuickActions extends ConsumerWidget {
   const QuickActions({super.key});
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
     final w = MediaQuery.sizeOf(context).width;
     final hPad = w * 0.051;
     final gap = w * 0.030;
@@ -31,7 +35,12 @@ class QuickActions extends StatelessWidget {
                 child: _ActionButton(
                   assetPath: 'assets/icons/ic_leaf.svg',
                   label: 'Подобрать уход',
-                  onTap: () {},
+                  onTap: () {
+                    ref
+                        .read(chatProvider.notifier)
+                        .selectMode(ChatMode.routinePick);
+                    ref.read(shellTabProvider.notifier).state = 3;
+                  },
                 ),
               ),
               SizedBox(width: gap),
@@ -39,7 +48,12 @@ class QuickActions extends StatelessWidget {
                 child: _ActionButton(
                   assetPath: 'assets/icons/ic_scan.svg',
                   label: 'Анализ продукта',
-                  onTap: () {},
+                  onTap: () {
+                    ref
+                        .read(chatProvider.notifier)
+                        .selectMode(ChatMode.productPhoto);
+                    ref.read(shellTabProvider.notifier).state = 3;
+                  },
                 ),
               ),
             ],
@@ -69,27 +83,25 @@ class _ActionButton extends StatelessWidget {
       onTap: onTap,
       child: Container(
         height: w * 0.173,
-        padding: EdgeInsets.symmetric(
-          horizontal: w * 0.046,
-          vertical: w * 0.030,
-        ),
         decoration: const BoxDecoration(
           color: AppColors.surface,
           borderRadius: BorderRadius.all(Radius.circular(16)),
         ),
-        child: Row(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            SvgPicture.asset(assetPath, width: w * 0.046, height: w * 0.046),
-            SizedBox(width: w * 0.020),
-            Text(
-              label,
-              style: AppTextStyles.labelMedium.copyWith(
-                fontWeight: FontWeight.w500,
-                letterSpacing: -0.5,
+        child: Center(
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              SvgPicture.asset(assetPath, width: w * 0.046, height: w * 0.046),
+              SizedBox(width: w * 0.020),
+              Text(
+                label,
+                style: AppTextStyles.labelMedium.copyWith(
+                  fontWeight: FontWeight.w500,
+                  letterSpacing: -0.5,
+                ),
               ),
-            ),
-          ],
+            ],
+          ),
         ),
       ),
     );

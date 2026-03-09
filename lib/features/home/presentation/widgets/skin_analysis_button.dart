@@ -1,17 +1,24 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_svg/flutter_svg.dart';
-import '../../../../core/theme/app_text_styles.dart';
 
-class SkinAnalysisButton extends StatelessWidget {
+import '../../../../core/providers/shell_tab_provider.dart';
+import '../../../../core/theme/app_text_styles.dart';
+import '../../../ai_assistant/presentation/controllers/chat_controller.dart';
+
+class SkinAnalysisButton extends ConsumerWidget {
   const SkinAnalysisButton({super.key});
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
     final w = MediaQuery.sizeOf(context).width;
     final hPad = w * 0.051;
 
     return GestureDetector(
-      onTap: () {},
+      onTap: () {
+        ref.read(chatProvider.notifier).selectMode(ChatMode.skinPhoto);
+        ref.read(shellTabProvider.notifier).state = 3; // Chat tab
+      },
       child: Container(
         margin: EdgeInsets.symmetric(horizontal: hPad),
         height: w * 0.092,

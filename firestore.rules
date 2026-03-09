@@ -33,6 +33,7 @@ service cloud.firestore {
         'name', 'lastNameChangeDate',
         'birthDate', 'gender', 'skinType', 'skinFeatures', 'goal',
         'shelf',
+        'routine',
         'timezone', 'trackedMetrics',
         'notificationsEnabled', 'morningMinutes', 'eveningMinutes',
         'updatedAt',

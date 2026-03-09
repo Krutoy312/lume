@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../../../core/providers/shell_tab_provider.dart';
 import '../../../../core/theme/app_colors.dart';
 import '../../../../core/widgets/floating_nav_bar.dart';
 import '../../../ai_assistant/presentation/screens/ai_chat_screen.dart';
@@ -17,16 +19,8 @@ import '../../../shelf/presentation/screens/shelf_screen.dart';
 /// so inner [SafeArea] widgets automatically clear the floating nav bar.
 /// The [FloatingNavBar] itself stays outside the override and reads the true
 /// system safe area inset for its own positioning.
-class MainShell extends StatefulWidget {
+class MainShell extends ConsumerWidget {
   const MainShell({super.key});
-
-  @override
-  State<MainShell> createState() => _MainShellState();
-}
-
-class _MainShellState extends State<MainShell> {
-  // Home (index 2) is selected by default.
-  int _selectedIndex = 2;
 
   static const List<Widget> _screens = [
     ShelfScreen(),
@@ -37,7 +31,8 @@ class _MainShellState extends State<MainShell> {
   ];
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
+    final selectedIndex = ref.watch(shellTabProvider);
     final w = MediaQuery.sizeOf(context).width;
     final mq = MediaQuery.of(context);
 
@@ -69,7 +64,7 @@ class _MainShellState extends State<MainShell> {
               padding: mq.padding.copyWith(bottom: navBarTotalHeight),
             ),
             child: IndexedStack(
-              index: _selectedIndex,
+              index: selectedIndex,
               children: _screens,
             ),
           ),
@@ -86,8 +81,9 @@ class _MainShellState extends State<MainShell> {
             child: Visibility(
               visible: !keyboardOpen,
               child: FloatingNavBar(
-                selectedIndex: _selectedIndex,
-                onTap: (i) => setState(() => _selectedIndex = i),
+                selectedIndex: selectedIndex,
+                onTap: (i) =>
+                    ref.read(shellTabProvider.notifier).state = i,
               ),
             ),
           ),

@@ -1,5 +1,6 @@
-import 'dart:io';
+import 'dart:io' show File;
 
+import 'package:flutter/foundation.dart';
 import 'package:flutter_dotenv/flutter_dotenv.dart';
 import 'package:http/http.dart' as http;
 import 'package:path_provider/path_provider.dart';
@@ -7,7 +8,7 @@ import 'package:record/record.dart';
 
 /// Records audio and transcribes it via the Alem AI speech-to-text API.
 class SpeechToTextService {
-  static String get _apiKey => dotenv.env['ALEM_STT_KEY']!;
+  static String get _apiKey => dotenv.env['ALEM_STT_KEY'] ?? '';
   static const _endpoint = 'https://llm.alem.ai/v1/audio/transcriptions';
 
   final AudioRecorder _recorder = AudioRecorder();
@@ -18,6 +19,8 @@ class SpeechToTextService {
 
   /// Starts recording. Throws if microphone permission is denied.
   Future<void> startRecording() async {
+    if (kIsWeb) throw UnsupportedError('Speech recording is not supported on web');
+
     final hasPermission = await _recorder.hasPermission();
     if (!hasPermission) throw Exception('Microphone permission denied');
 
@@ -37,6 +40,8 @@ class SpeechToTextService {
   /// Stops recording and sends the audio to the API.
   /// Returns the transcribed text, or throws on failure.
   Future<String> stopAndTranscribe() async {
+    if (kIsWeb) throw UnsupportedError('Speech recording is not supported on web');
+
     final path = await _recorder.stop();
     if (path == null) throw Exception('Recording failed: no output file');
 
@@ -75,6 +80,7 @@ class SpeechToTextService {
 
   /// Cancels an in-progress recording without transcribing.
   Future<void> cancelRecording() async {
+    if (kIsWeb) return;
     await _recorder.cancel();
     if (_recordingPath != null) {
       final f = File(_recordingPath!);

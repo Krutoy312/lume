@@ -13,7 +13,7 @@ import '../../../../core/theme/app_colors.dart';
 import '../../data/models/product_model.dart';
 import '../controllers/shelf_controller.dart';
 
-String get _kQwen3Key => dotenv.env['ALEM_AI_KEY']!;
+String get _kQwen3Key => dotenv.env['ALEM_AI_KEY'] ?? '';
 const _kQwen3Model = 'qwen3';
 const _kBaseUrl = 'https://llm.alem.ai/v1/chat/completions';
 

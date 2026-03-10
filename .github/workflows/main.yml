@@ -21,8 +21,8 @@ jobs:
       - name: Install dependencies
         run: flutter pub get
 
-      - name: Create dummy .env file
-        run: touch .env
+      - name: Create .env file from secret
+        run: echo "${{ secrets.ENV_FILE }}" > .env
 
       - name: Build web
         run: flutter build web --release --base-href /lume/ --no-wasm-dry-run
@@ -51,8 +51,8 @@ jobs:
       - name: Install dependencies
         run: flutter pub get
 
-      - name: Create dummy .env file
-        run: touch .env
+      - name: Create .env file from secret
+        run: echo "${{ secrets.ENV_FILE }}" > .env
 
       - name: Create debug keystore
         run: |

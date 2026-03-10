@@ -12,7 +12,7 @@ import '../../../../features/shelf/data/models/shelf_model.dart';
 // ─── API constants ────────────────────────────────────────────────────────────
 
 const _kBaseUrl = 'https://llm.alem.ai/v1/chat/completions';
-String get _kQwen3Key => dotenv.env['ALEM_AI_KEY']!;
+String get _kQwen3Key => dotenv.env['ALEM_AI_KEY'] ?? '';
 const _kQwen3Model = 'qwen3';
 
 const _kMetricLabels = {

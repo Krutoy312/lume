@@ -21,7 +21,6 @@ jobs:
       - name: Install dependencies
         run: flutter pub get
 
-      # Исправляет ошибку "No file found for asset: .env"
       - name: Create dummy .env file
         run: touch .env
 
@@ -52,12 +51,16 @@ jobs:
       - name: Install dependencies
         run: flutter pub get
 
-      # Исправляет ошибку "No file found for asset: .env"
       - name: Create dummy .env file
         run: touch .env
 
-      - name: Extract SHA-1
-        run: keytool -list -v -keystore ~/.android/debug.keystore -alias androiddebugkey -storepass android -keypass android
+      - name: Create debug keystore
+        run: |
+          mkdir -p ~/.android
+          keytool -genkey -v -keystore ~/.android/debug.keystore \
+            -alias androiddebugkey -keyalg RSA -keysize 2048 \
+            -validity 10000 -storepass android -keypass android \
+            -dname "CN=Android Debug,O=Android,C=US"
 
       - name: Build release APK
         run: flutter build apk --release

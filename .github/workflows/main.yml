@@ -21,8 +21,12 @@ jobs:
       - name: Install dependencies
         run: flutter pub get
 
+      # Исправляет ошибку "No file found for asset: .env"
+      - name: Create dummy .env file
+        run: touch .env
+
       - name: Build web
-        run: flutter build web --release --base-href /lume/
+        run: flutter build web --release --base-href /lume/ --no-wasm-dry-run
 
       - name: Deploy to gh-pages
         uses: peaceiris/actions-gh-pages@v4
@@ -47,6 +51,10 @@ jobs:
 
       - name: Install dependencies
         run: flutter pub get
+
+      # Исправляет ошибку "No file found for asset: .env"
+      - name: Create dummy .env file
+        run: touch .env
 
       - name: Extract SHA-1
         run: keytool -list -v -keystore ~/.android/debug.keystore -alias androiddebugkey -storepass android -keypass android

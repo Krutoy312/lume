@@ -39,7 +39,7 @@ class MascotTipCard extends StatelessWidget {
                   mainAxisAlignment: MainAxisAlignment.center,
                   children: [
                     Text(
-                      'Совет от Бубылька:',
+                      'Совет от Lume:',
                       style: AppTextStyles.bodyLarge.copyWith(
                         color: AppColors.amber,
                         fontWeight: FontWeight.w800,
